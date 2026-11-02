@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { ChevronLeft, ChevronRight, Plus, Crown, AlertTriangle, MoreHorizontal, Search } from "lucide-react";
+import { Plus, Crown, AlertTriangle, MoreHorizontal, Search } from "lucide-react";
 import { toast } from "sonner";
 import { api, formatApiError, toDateStr, prettyDate } from "../lib/api";
 import { RES_STATUS, ResBadge, btnPrimary, card } from "../lib/status";
 import { PageHeader } from "../components/StaffLayout";
 import { ReservationDialog, CompleteDialog } from "../components/ReservationDialog";
+import { DateWheel, shiftDate } from "../components/DateWheel";
 import { Input } from "../components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 
@@ -74,7 +75,7 @@ function ResRow({ r, onChange, onEdit }) {
   );
 }
 
-const shift = (d, n) => { const x = new Date(`${d}T12:00:00`); x.setDate(x.getDate() + n); return toDateStr(x); };
+const shift = shiftDate;
 
 export default function Reservations() {
   const [date, setDate] = useState(toDateStr(new Date()));
@@ -109,21 +110,7 @@ export default function Reservations() {
       </PageHeader>
 
       <div className="mb-5 flex items-center gap-2">
-        <button onClick={() => setDate(shift(date, -1))} data-testid="date-prev-btn" className="rounded-xl border border-border bg-white p-2.5 hover:border-[#120092]/40"><ChevronLeft className="h-4 w-4" /></button>
-        <div className="grid flex-1 grid-cols-3 gap-1.5 md:grid-cols-7">
-          {[-3, -2, -1, 0, 1, 2, 3].map((n) => {
-            const d = shift(date, n);
-            const active = n === 0;
-            return (
-              <button key={d} onClick={() => setDate(d)} data-testid={`date-chip-${d}`}
-                className={`${Math.abs(n) > 1 ? "hidden md:block" : ""} rounded-xl border px-1 py-2 text-center transition-colors ${active ? "border-[#120092] bg-[#120092] text-white brand-shadow" : "border-border bg-white hover:border-[#120092]/40"}`}>
-                <div className={`truncate text-xs font-semibold ${active ? "text-white" : "text-slate-700"}`}>{prettyDate(d)}</div>
-                <div className={`mt-0.5 text-[11px] ${active ? "text-white/70" : "text-slate-400"}`}>{week[d] || 0} covers</div>
-              </button>
-            );
-          })}
-        </div>
-        <button onClick={() => setDate(shift(date, 1))} data-testid="date-next-btn" className="rounded-xl border border-border bg-white p-2.5 hover:border-[#120092]/40"><ChevronRight className="h-4 w-4" /></button>
+        <DateWheel date={date} onChange={setDate} counts={week} />
         <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} data-testid="date-picker-input" className="hidden h-11 w-40 rounded-xl bg-white md:block" />
       </div>
 
