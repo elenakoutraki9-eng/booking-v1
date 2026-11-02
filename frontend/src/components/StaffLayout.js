@@ -1,5 +1,7 @@
 import { NavLink, Link, useLocation, useOutlet } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useEffect } from "react";
+import { PageStack } from "./PageStack";
 import { LayoutDashboard, CalendarDays, Grid3x3, Users, Settings, LogOut, ExternalLink } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSite } from "../context/SiteContext";
@@ -17,6 +19,10 @@ export default function StaffLayout() {
   const name = useSite().info?.name || "";
   const { pathname } = useLocation();
   const outlet = useOutlet();
+  const order = NAV.findIndex((n) => n.to === pathname);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [order]);
 
   const linkCls = ({ isActive }) =>
     `relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-300 ${isActive ? "text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`;
@@ -60,15 +66,8 @@ export default function StaffLayout() {
           </div>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
-          <motion.div
-            key={pathname}
-            initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: { type: "spring", stiffness: 260, damping: 30 } }}
-            data-testid="page-transition"
-          >
-            {outlet}
-          </motion.div>
+      <main className="min-w-0 flex-1 overflow-hidden px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+        <PageStack pageKey={pathname} order={order}>{outlet}</PageStack>
       </main>
     </div>
   );
