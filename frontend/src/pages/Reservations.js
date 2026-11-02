@@ -5,7 +5,8 @@ import { api, formatApiError, toDateStr, prettyDate } from "../lib/api";
 import { RES_STATUS, ResBadge, btnPrimary, card } from "../lib/status";
 import { PageHeader } from "../components/StaffLayout";
 import { ReservationDialog, CompleteDialog } from "../components/ReservationDialog";
-import { DateWheel, shiftDate } from "../components/DateWheel";
+import { DateDrum, shiftDate } from "../components/DateDrum";
+import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "../components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 
@@ -76,6 +77,11 @@ function ResRow({ r, onChange, onEdit }) {
 }
 
 const shift = shiftDate;
+const listSlide = {
+  enter: (dir) => ({ x: dir * 48, opacity: 0 }),
+  center: { x: 0, opacity: 1, transition: { type: "spring", stiffness: 260, damping: 28 } },
+  exit: (dir) => ({ x: dir * -48, opacity: 0, transition: { duration: 0.15 } }),
+};
 
 export default function Reservations() {
   const [date, setDate] = useState(toDateStr(new Date()));
@@ -84,13 +90,15 @@ export default function Reservations() {
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(null);
   const [week, setWeek] = useState({});
+  const [loaded, setLoaded] = useState({ date: null, dir: 1 });
 
   const load = useCallback(async () => {
     const [d, w] = await Promise.all([
       api.get("/reservations", { params: { date, q: q || undefined } }),
-      api.get("/reservations", { params: { start: shift(date, -3), end: shift(date, 3), status: "pending,confirmed,seated,completed" } }),
+      api.get("/reservations", { params: { start: shift(date, -6), end: shift(date, 6), status: "pending,confirmed,seated,completed" } }),
     ]);
     setItems(d.data);
+    setLoaded((prev) => (prev.date === date ? prev : { date, dir: prev.date && date < prev.date ? -1 : 1 }));
     const counts = {};
     w.data.forEach((r) => { counts[r.date] = (counts[r.date] || 0) + r.party_size; });
     setWeek(counts);
@@ -110,7 +118,7 @@ export default function Reservations() {
       </PageHeader>
 
       <div className="mb-5 flex items-center gap-2">
-        <DateWheel date={date} onChange={setDate} counts={week} />
+        <DateDrum date={date} onChange={setDate} counts={week} />
         <Input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} data-testid="date-picker-input" className="hidden h-11 w-40 rounded-xl bg-white md:block" />
       </div>
 
@@ -127,14 +135,18 @@ export default function Reservations() {
         </div>
       </div>
 
-      <div className={card}>
-        <div className="flex items-center justify-between border-b border-border px-5 py-3 text-sm">
-          <span className="font-semibold">{prettyDate(date)}</span><span className="text-slate-500" data-testid="day-covers">{covers} covers</span>
-        </div>
-        {shown.length === 0 && <p className="py-16 text-center text-sm text-slate-400" data-testid="res-empty">No reservations for this day.</p>}
-        <div className="divide-y divide-border">
-          {shown.map((r) => <ResRow key={r.id} r={r} onChange={load} onEdit={setEditing} />)}
-        </div>
+      <div className={`${card} overflow-hidden`}>
+        <AnimatePresence mode="wait" initial={false} custom={loaded.dir}>
+          <motion.div key={loaded.date || "init"} custom={loaded.dir} variants={listSlide} initial="enter" animate="center" exit="exit" data-testid="res-day-list">
+            <div className="flex items-center justify-between border-b border-border px-5 py-3 text-sm">
+              <span className="font-semibold">{prettyDate(loaded.date || date)}</span><span className="text-slate-500" data-testid="day-covers">{covers} covers</span>
+            </div>
+            {shown.length === 0 && <p className="py-16 text-center text-sm text-slate-400" data-testid="res-empty">No reservations for this day.</p>}
+            <div className="divide-y divide-border">
+              {shown.map((r) => <ResRow key={r.id} r={r} onChange={load} onEdit={setEditing} />)}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <ReservationDialog value={editing} defaultDate={date} onClose={() => setEditing(null)} onSaved={load} />
