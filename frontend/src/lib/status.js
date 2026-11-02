@@ -14,8 +14,6 @@ export const RES_STATUS = {
   no_show: { label: "No-show", cls: "bg-rose-50 text-rose-700 ring-rose-200" },
 };
 
-export const ZONES = ["Main Dining", "Bar", "Terrace"];
-
 export function ResBadge({ status, testId }) {
   const s = RES_STATUS[status] || RES_STATUS.pending;
   return (

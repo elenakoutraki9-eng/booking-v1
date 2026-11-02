@@ -1,12 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { api, formatApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useSite } from "../context/SiteContext";
 import { btnPrimary, btnGhost, card } from "../lib/status";
 import { PageHeader } from "../components/StaffLayout";
+import { TodayLayoutEditor, ZonesEditor, BookingPageEditor } from "../components/SettingsEditors";
 import { Input } from "../components/ui/input";
-import { Textarea } from "../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
 const L = ({ children }) => <div className="mb-1.5 text-xs font-semibold text-slate-500">{children}</div>;
@@ -16,30 +18,27 @@ const Card = ({ title, children }) => (
   </section>
 );
 
-function RestaurantInfo({ isAdmin }) {
-  const [s, setS] = useState(null);
-  useEffect(() => {
-    let alive = true;
-    api.get("/settings").then((r) => { if (alive) setS((cur) => cur || r.data); });
-    return () => { alive = false; };
-  }, []);
-  if (!s) return null;
+const GENERAL_KEYS = ["name", "address", "hours", "phone", "email", "slot_start", "slot_end", "slot_interval", "max_party_online"];
+
+function RestaurantInfo({ s0, isAdmin, onSaved }) {
+  const { refresh } = useSite();
+  const [s, setS] = useState(() => Object.fromEntries(GENERAL_KEYS.map((k) => [k, s0[k]])));
   const f = (k, type = "text") => ({ type, value: s[k] ?? "", disabled: !isAdmin, onChange: (e) => setS({ ...s, [k]: type === "number" ? Number(e.target.value) : e.target.value }), "data-testid": `settings-${k}` });
   const save = async (e) => {
     e.preventDefault();
     try {
-      await api.put("/settings", s);
+      const { data } = await api.put("/settings", s);
+      onSaved(data);
+      refresh();
       toast.success("Settings saved");
     } catch (err) {
       toast.error(formatApiError(err));
     }
   };
   return (
-    <Card title="Restaurant & booking page">
+    <Card title="Restaurant details & booking rules">
       <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
-        <div><L>Name</L><Input {...f("name")} required /></div>
-        <div><L>Tagline</L><Input {...f("tagline")} /></div>
-        <div className="sm:col-span-2"><L>Description</L><Textarea rows={2} {...f("description")} /></div>
+        <div className="sm:col-span-2"><L>Name</L><Input {...f("name")} required /></div>
         <div><L>Address</L><Input {...f("address")} /></div>
         <div><L>Opening hours</L><Input {...f("hours")} /></div>
         <div><L>Phone</L><Input {...f("phone")} /></div>
@@ -130,19 +129,51 @@ function ChangePassword() {
   );
 }
 
+const TABS = [
+  { id: "general", label: "General" },
+  { id: "booking", label: "Booking page", admin: true },
+  { id: "today", label: "Today layout", admin: true },
+  { id: "areas", label: "Seating areas", admin: true },
+  { id: "team", label: "Team & password" },
+];
+
 export default function Settings() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
+  const [params, setParams] = useSearchParams();
+  const [s, setS] = useState(null);
+  const tabs = TABS.filter((t) => isAdmin || !t.admin);
+  const tab = tabs.find((t) => t.id === params.get("tab"))?.id || "general";
+
+  useEffect(() => {
+    let alive = true;
+    api.get("/settings").then((r) => { if (alive) setS(r.data); });
+    return () => { alive = false; };
+  }, []);
+
   return (
     <div>
       <PageHeader eyebrow="Configure" title="Settings" />
-      <div className="grid gap-6 xl:grid-cols-12">
-        <div className="xl:col-span-7"><RestaurantInfo isAdmin={isAdmin} /></div>
-        <div className="space-y-6 xl:col-span-5">
-          {isAdmin && <StaffAccounts />}
-          <ChangePassword />
-        </div>
+      <div className="mb-6 flex gap-1 overflow-x-auto rounded-full border border-border bg-white p-1 sm:inline-flex" data-testid="settings-tabs">
+        {tabs.map((t) => (
+          <button key={t.id} onClick={() => setParams({ tab: t.id })} data-testid={`settings-tab-${t.id}`}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === t.id ? "bg-[#120092] text-white" : "text-slate-500 hover:text-slate-900"}`}>{t.label}</button>
+        ))}
       </div>
+      {s && (
+        <div className="max-w-4xl">
+          {tab === "general" && <RestaurantInfo s0={s} isAdmin={isAdmin} onSaved={setS} />}
+          {tab === "booking" && <BookingPageEditor s={s} onSaved={setS} />}
+          {tab === "today" && <TodayLayoutEditor s={s} onSaved={setS} />}
+          {tab === "areas" && <ZonesEditor s={s} onSaved={setS} />}
+          {tab === "team" && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {isAdmin && <StaffAccounts />}
+              <ChangePassword />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
 import { NavLink, Outlet, Link } from "react-router-dom";
 import { LayoutDashboard, CalendarDays, Grid3x3, Users, Settings, LogOut, ExternalLink } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../lib/api";
+import { useSite } from "../context/SiteContext";
 
 const NAV = [
   { to: "/staff", label: "Today", icon: LayoutDashboard, end: true, id: "nav-dashboard" },
@@ -14,11 +13,7 @@ const NAV = [
 
 export default function StaffLayout() {
   const { user, logout } = useAuth();
-  const [name, setName] = useState("");
-
-  useEffect(() => {
-    api.get("/public/info").then((r) => setName(r.data.name)).catch(() => {});
-  }, []);
+  const name = useSite().info?.name || "";
 
   const linkCls = ({ isActive }) =>
     `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${isActive ? "bg-[#120092] text-white brand-shadow" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`;

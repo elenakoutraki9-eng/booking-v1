@@ -2,6 +2,8 @@ import axios from "axios";
 
 export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+export const assetUrl = (u) => (u && u.startsWith("/api/") ? `${process.env.REACT_APP_BACKEND_URL}${u}` : u);
+
 export const api = axios.create({ baseURL: API, withCredentials: true });
 
 let refreshing = null;

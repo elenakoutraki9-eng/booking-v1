@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, Move, Check } from "lucide-react";
 import { toast } from "sonner";
 import { api, formatApiError } from "../lib/api";
-import { TABLE_STATUS, ZONES, btnPrimary, btnGhost } from "../lib/status";
+import { TABLE_STATUS, btnPrimary, btnGhost } from "../lib/status";
+import { useZones } from "../context/SiteContext";
 import { PageHeader } from "../components/StaffLayout";
 import { TablePanel, TableFormDialog } from "../components/TablePanel";
 import { Sheet, SheetContent, SheetTitle } from "../components/ui/sheet";
@@ -74,6 +75,7 @@ export default function FloorPlan() {
   const [, tick] = useState(0);
   const ref = useRef(null);
   const wide = useIsWide();
+  const zones = useZones();
 
   const load = useCallback(async () => {
     const { data } = await api.get("/tables");
@@ -110,8 +112,8 @@ export default function FloorPlan() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="flex rounded-full border border-border bg-white p-1">
-          {["all", ...ZONES].map((z) => (
-            <button key={z} onClick={() => setZone(z)} data-testid={`floor-zone-${z.replace(" ", "-").toLowerCase()}`}
+          {["all", ...zones].map((z) => (
+            <button key={z} onClick={() => setZone(z)} data-testid={`floor-zone-${z.replace(/\s+/g, "-").toLowerCase()}`}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${zone === z ? "bg-[#120092] text-white" : "text-slate-500 hover:text-slate-900"}`}>{z === "all" ? "All" : z}</button>
           ))}
         </div>

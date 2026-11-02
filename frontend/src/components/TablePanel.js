@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UserPlus, Sparkles, Trash2, Pencil, MousePointerClick } from "lucide-react";
 import { api, formatApiError, toDateStr } from "../lib/api";
-import { TABLE_STATUS, ZONES, ResBadge, btnPrimary, btnGhost, card } from "../lib/status";
+import { TABLE_STATUS, ResBadge, btnPrimary, btnGhost, card } from "../lib/status";
+import { useZones } from "../context/SiteContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -23,10 +24,11 @@ async function run(fn, msg, after) {
 }
 
 export function TableFormDialog({ open, onOpenChange, onSaved, table }) {
-  const [f, setF] = useState({ name: "", capacity: 4, zone: "Main Dining", shape: "round" });
+  const zones = useZones();
+  const [f, setF] = useState({ name: "", capacity: 4, zone: "", shape: "round" });
   useEffect(() => {
-    if (open) setF(table ? { name: table.name, capacity: table.capacity, zone: table.zone, shape: table.shape } : { name: "", capacity: 4, zone: "Main Dining", shape: "round", x: 45, y: 45 });
-  }, [open, table]);
+    if (open) setF(table ? { name: table.name, capacity: table.capacity, zone: table.zone, shape: table.shape } : { name: "", capacity: 4, zone: zones[0] || "", shape: "round", x: 45, y: 45 });
+  }, [open, table, zones]);
   const save = (e) => {
     e.preventDefault();
     const body = { ...f, capacity: Number(f.capacity) };
@@ -41,7 +43,7 @@ export function TableFormDialog({ open, onOpenChange, onSaved, table }) {
           <Input type="number" min={1} max={30} value={f.capacity} onChange={(e) => setF({ ...f, capacity: e.target.value })} required data-testid="tableform-capacity" />
           <Select value={f.zone} onValueChange={(v) => setF({ ...f, zone: v })}>
             <SelectTrigger data-testid="tableform-zone"><SelectValue /></SelectTrigger>
-            <SelectContent>{ZONES.map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}</SelectContent>
+            <SelectContent>{[...new Set([...zones, f.zone].filter(Boolean))].map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={f.shape} onValueChange={(v) => setF({ ...f, shape: v })}>
             <SelectTrigger data-testid="tableform-shape"><SelectValue /></SelectTrigger>

@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Crown, AlertTriangle, ArrowRight, CalendarCheck, Users, Armchair, Hourglass, Euro } from "lucide-react";
+import { Crown, AlertTriangle, ArrowRight, CalendarCheck, Users, Armchair, Hourglass, Euro, SlidersHorizontal } from "lucide-react";
 import { api, eur, toDateStr, prettyDate } from "../lib/api";
-import { TABLE_STATUS, ResBadge, card } from "../lib/status";
+import { TABLE_STATUS, ResBadge, card, btnGhost } from "../lib/status";
+import { useAuth } from "../context/AuthContext";
 import { PageHeader } from "../components/StaffLayout";
 import { ReservationActions } from "./Reservations";
 
@@ -16,15 +17,27 @@ const Stat = ({ label, value, id, icon: Icon, highlight }) => (
   </div>
 );
 
+export const STATS = {
+  stat_bookings: { label: "Bookings", id: "stat-bookings", icon: CalendarCheck, value: (s) => s?.bookings ?? "–" },
+  stat_covers: { label: "Covers", id: "stat-covers", icon: Users, value: (s) => s?.covers ?? "–" },
+  stat_seated: { label: "Seated now", id: "stat-seated", icon: Armchair, value: (s) => s?.seated_covers ?? "–" },
+  stat_pending: { label: "To confirm", id: "stat-pending", icon: Hourglass, value: (s) => s?.pending_total ?? "–" },
+  stat_revenue: { label: "Revenue logged", id: "stat-revenue", icon: Euro, value: (s) => eur(s?.revenue) },
+};
+const GRID = { 1: "lg:grid-cols-1", 2: "lg:grid-cols-2", 3: "lg:grid-cols-3", 4: "lg:grid-cols-4", 5: "lg:grid-cols-5" };
+
 export default function Dashboard() {
   const today = toDateStr(new Date());
   const [stats, setStats] = useState(null);
   const [res, setRes] = useState([]);
+  const [layout, setLayout] = useState(null);
+  const { user } = useAuth();
 
   const load = useCallback(async () => {
-    const [s, r] = await Promise.all([api.get("/dashboard"), api.get("/reservations", { params: { date: today } })]);
+    const [s, r, cfg] = await Promise.all([api.get("/dashboard"), api.get("/reservations", { params: { date: today } }), api.get("/settings")]);
     setStats(s.data);
     setRes(r.data);
+    setLayout(cfg.data);
   }, [today]);
 
   useEffect(() => {
@@ -33,20 +46,13 @@ export default function Dashboard() {
 
   const upcoming = res.filter((r) => ["pending", "confirmed", "seated"].includes(r.status));
   const occ = stats?.total_tables ? Math.round(((stats.tables.seated || 0) / stats.total_tables) * 100) : 0;
+  const visible = (layout?.dashboard || []).filter((w) => w.visible).map((w) => w.key);
+  const statKeys = visible.filter((k) => STATS[k]);
+  const sections = visible.filter((k) => !STATS[k]);
+  const wideUpcoming = sections.length === 1;
 
-  return (
-    <div>
-      <PageHeader eyebrow={prettyDate(today)} title="Today's service" />
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <Stat label="Bookings" value={stats?.bookings ?? "–"} id="stat-bookings" icon={CalendarCheck} highlight />
-        <Stat label="Covers" value={stats?.covers ?? "–"} id="stat-covers" icon={Users} />
-        <Stat label="Seated now" value={stats?.seated_covers ?? "–"} id="stat-seated" icon={Armchair} />
-        <Stat label="To confirm" value={stats?.pending_total ?? "–"} id="stat-pending" icon={Hourglass} />
-        <Stat label="Revenue logged" value={eur(stats?.revenue)} id="stat-revenue" icon={Euro} />
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-12">
-        <div className={`${card} lg:col-span-8`}>
+  const upcomingBlock = (
+        <div key="upcoming" className={`${card} ${wideUpcoming ? "lg:col-span-12" : "lg:col-span-8"}`} data-testid="widget-upcoming">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="font-display text-lg font-semibold">Upcoming today</h2>
             <Link to="/staff/reservations" data-testid="dashboard-all-res-link" className="flex items-center gap-1 text-sm font-medium text-[#120092] hover:underline">All reservations <ArrowRight className="h-3.5 w-3.5" /></Link>
@@ -70,7 +76,10 @@ export default function Dashboard() {
             ))}
           </ul>
         </div>
-        <div className={`${card} p-5 lg:col-span-4`}>
+  );
+
+  const floorBlock = (
+        <div key="floor" className={`${card} p-5 ${wideUpcoming ? "lg:col-span-12" : "lg:col-span-4"}`} data-testid="widget-floor">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-semibold">Floor status</h2>
             <Link to="/staff/floor" data-testid="dashboard-floor-link" className="text-sm font-medium text-[#120092] hover:underline">Open floor</Link>
@@ -92,7 +101,31 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-      </div>
+  );
+
+  if (!layout) return null;
+
+  return (
+    <div>
+      <PageHeader eyebrow={prettyDate(today)} title={layout.dashboard_title || "Today"}>
+        {user?.role === "admin" && (
+          <Link to="/staff/settings?tab=today" data-testid="dashboard-customize-btn" className={btnGhost}><SlidersHorizontal className="h-4 w-4" /> Customize</Link>
+        )}
+      </PageHeader>
+      {statKeys.length > 0 && (
+        <div className={`grid grid-cols-2 gap-4 ${GRID[statKeys.length]}`}>
+          {statKeys.map((k, i) => {
+            const s = STATS[k];
+            return <Stat key={k} label={s.label} value={s.value(stats)} id={s.id} icon={s.icon} highlight={i === 0} />;
+          })}
+        </div>
+      )}
+      {sections.length > 0 && (
+        <div className="mt-6 grid gap-6 lg:grid-cols-12">
+          {sections.map((k) => (k === "upcoming" ? upcomingBlock : floorBlock))}
+        </div>
+      )}
+      {visible.length === 0 && <p className="py-16 text-center text-sm text-slate-400" data-testid="dashboard-all-hidden">All widgets are hidden. Use Customize to show some.</p>}
     </div>
   );
 }

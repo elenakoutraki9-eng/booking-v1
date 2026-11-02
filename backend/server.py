@@ -6,6 +6,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import uuid
+import base64
 import random
 import string
 import logging
@@ -30,7 +31,7 @@ logging.basicConfig(level=logging.INFO)
 JWT_ALGORITHM = "HS256"
 TABLE_STATUSES = ["free", "reserved", "seated", "cleaning"]
 RES_STATUSES = ["pending", "confirmed", "seated", "completed", "cancelled", "no_show"]
-ZONES = ["Main Dining", "Bar", "Terrace"]
+DASHBOARD_KEYS = ["stat_bookings", "stat_covers", "stat_seated", "stat_pending", "stat_revenue", "upcoming", "floor"]
 
 
 def now_iso():
@@ -215,11 +216,31 @@ DEFAULT_SETTINGS = {
     "slot_interval": 30,
     "max_party_online": 8,
     "avg_spend": 45,
+    "zones": ["Main Dining", "Bar", "Terrace"],
+    "dashboard_title": "Today's service",
+    "dashboard": [{"key": k, "visible": True} for k in DASHBOARD_KEYS],
+    "hero_badge": "Now taking reservations",
+    "hero_image": "/images/hero.jpg",
+    "cta_label": "Reserve a table",
+    "show_hero_cards": True,
+    "booking_title": "Book in under a minute.",
+    "booking_text": "Pick a date, time and party size. Our team reviews every request and confirms by email or phone.",
+    "show_steps": True,
+    "show_gallery": True,
+    "gallery_1": "/images/dish.jpg",
+    "gallery_2": "/images/bar.jpg",
+    "show_visit": True,
+    "visit_title": "Find your way here.",
 }
 
 
+class DashboardWidget(BaseModel):
+    key: Literal["stat_bookings", "stat_covers", "stat_seated", "stat_pending", "stat_revenue", "upcoming", "floor"]
+    visible: bool = True
+
+
 class SettingsIn(BaseModel):
-    name: str
+    name: str = Field("Restaurant", min_length=1, max_length=80)
     tagline: str = ""
     description: str = ""
     address: str = ""
@@ -231,14 +252,41 @@ class SettingsIn(BaseModel):
     slot_interval: int = Field(30, ge=15, le=120)
     max_party_online: int = Field(8, ge=1, le=50)
     avg_spend: float = Field(45, ge=0)
+    dashboard_title: str = Field("Today's service", max_length=80)
+    dashboard: Optional[List[DashboardWidget]] = None
+    hero_badge: str = Field("", max_length=80)
+    hero_image: str = Field("", max_length=500)
+    cta_label: str = Field("Reserve a table", min_length=1, max_length=40)
+    show_hero_cards: bool = True
+    booking_title: str = Field("", max_length=120)
+    booking_text: str = Field("", max_length=600)
+    show_steps: bool = True
+    show_gallery: bool = True
+    gallery_1: str = Field("", max_length=500)
+    gallery_2: str = Field("", max_length=500)
+    show_visit: bool = True
+    visit_title: str = Field("", max_length=120)
+
+
+class ZoneItem(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    original: Optional[str] = None
+
+
+class ZonesIn(BaseModel):
+    zones: List[ZoneItem] = Field(min_length=1)
 
 
 async def get_settings_doc():
     s = await db.settings.find_one({"key": "main"})
     if not s:
         s = dict(DEFAULT_SETTINGS)
-        await db.settings.insert_one(s)
-    return clean(s)
+        await db.settings.insert_one(dict(s))
+    s = {**DEFAULT_SETTINGS, **clean(s)}
+    known = [w for w in s["dashboard"] if w["key"] in DASHBOARD_KEYS]
+    have = {w["key"] for w in known}
+    s["dashboard"] = known + [{"key": k, "visible": True} for k in DASHBOARD_KEYS if k not in have]
+    return s
 
 
 def build_slots(s):
@@ -255,8 +303,8 @@ def build_slots(s):
 async def public_info():
     s = await get_settings_doc()
     s["slots"] = build_slots(s)
-    s["zones"] = ZONES
-    s.pop("avg_spend", None)
+    for k in ("avg_spend", "dashboard", "dashboard_title"):
+        s.pop(k, None)
     return s
 
 
@@ -270,8 +318,59 @@ async def update_settings(body: SettingsIn, _: dict = Depends(require_admin)):
     if body.slot_start > body.slot_end:
         raise HTTPException(400, "First booking time must be before the last booking time")
     await get_settings_doc()
-    await db.settings.update_one({"key": "main"}, {"$set": body.model_dump()})
+    data = body.model_dump(exclude_unset=True)
+    if data.get("dashboard") is None:
+        data.pop("dashboard", None)
+    await db.settings.update_one({"key": "main"}, {"$set": data})
     return await get_settings_doc()
+
+
+@api.put("/settings/zones")
+async def update_zones(body: ZonesIn, _: dict = Depends(require_admin)):
+    names = [z.name.strip() for z in body.zones]
+    if len(set(n.lower() for n in names)) != len(names):
+        raise HTTPException(400, "Seating area names must be unique")
+    current = (await get_settings_doc())["zones"]
+    kept = {z.original for z in body.zones if z.original} | set(names)
+    for gone in [c for c in current if c not in kept]:
+        n = await db.tables.count_documents({"zone": gone})
+        if n:
+            raise HTTPException(400, f"Move the {n} table(s) out of '{gone}' before removing it")
+    for z in body.zones:
+        if z.original and z.original != z.name.strip():
+            await db.tables.update_many({"zone": z.original}, {"$set": {"zone": z.name.strip()}})
+            await db.reservations.update_many({"zone": z.original}, {"$set": {"zone": z.name.strip()}})
+    await db.settings.update_one({"key": "main"}, {"$set": {"zones": names}})
+    return await get_settings_doc()
+
+
+class AssetIn(BaseModel):
+    data_url: str
+
+
+@api.post("/assets")
+async def upload_asset(body: AssetIn, _: dict = Depends(require_admin)):
+    try:
+        header, b64 = body.data_url.split(",", 1)
+        mime = header.split(";")[0].split(":")[1]
+        raw = base64.b64decode(b64)
+    except (ValueError, IndexError):
+        raise HTTPException(400, "Invalid image")
+    if mime not in ("image/jpeg", "image/png", "image/webp"):
+        raise HTTPException(400, "Use a JPG, PNG or WEBP image")
+    if len(raw) > 3 * 1024 * 1024:
+        raise HTTPException(400, "Image is too large (max 3 MB)")
+    aid = new_id()
+    await db.assets.insert_one({"id": aid, "mime": mime, "data": raw, "created_at": now_iso()})
+    return {"url": f"/api/public/assets/{aid}"}
+
+
+@api.get("/public/assets/{aid}")
+async def get_asset(aid: str):
+    a = await db.assets.find_one({"id": aid})
+    if not a:
+        raise HTTPException(404, "Not found")
+    return Response(content=a["data"], media_type=a["mime"], headers={"Cache-Control": "public, max-age=31536000"})
 
 
 # ---------- Guests ----------
@@ -547,7 +646,7 @@ async def public_reserve(body: PublicReservationIn):
         raise HTTPException(400, "Please choose a date in the future")
     if body.time not in build_slots(s) or (body.date == now.strftime("%Y-%m-%d") and body.time <= now.strftime("%H:%M")):
         raise HTTPException(400, "Please choose one of the available times")
-    if body.zone and body.zone not in ZONES:
+    if body.zone and body.zone not in s["zones"]:
         raise HTTPException(400, "Unknown seating area")
     guest = await find_or_create_guest(body.name, body.email, body.phone)
     r = {"id": new_id(), "ref": make_ref(), "guest_id": guest["id"], "guest_name": body.name, "email": body.email.lower(),

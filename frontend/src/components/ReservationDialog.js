@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { api, formatApiError } from "../lib/api";
-import { ZONES, btnPrimary, btnGhost } from "../lib/status";
+import { btnPrimary, btnGhost } from "../lib/status";
+import { useZones } from "../context/SiteContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -19,6 +20,7 @@ const dlg = "max-h-[90vh] overflow-y-auto rounded-2xl border-border bg-white";
 
 export function ReservationDialog({ value, defaultDate, onClose, onSaved }) {
   const isEdit = !!value?.id;
+  const zones = useZones();
   const [f, setF] = useState({});
   const [tables, setTables] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -74,7 +76,7 @@ export function ReservationDialog({ value, defaultDate, onClose, onSaved }) {
               <SelectTrigger data-testid="resform-zone"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE}>Any</SelectItem>
-                {ZONES.map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
+                {zones.map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
               </SelectContent>
             </Select>
           </F>

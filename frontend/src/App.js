@@ -2,6 +2,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { SiteProvider } from "./context/SiteContext";
 import PublicBooking from "./pages/PublicBooking";
 import Login from "./pages/Login";
 import StaffLayout from "./components/StaffLayout";
@@ -22,6 +23,7 @@ function Protected({ children }) {
 function App() {
   return (
     <AuthProvider>
+      <SiteProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<PublicBooking />} />
@@ -36,6 +38,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      </SiteProvider>
       <Toaster theme="light" position="bottom-right" richColors />
     </AuthProvider>
   );
