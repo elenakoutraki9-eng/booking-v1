@@ -1,4 +1,5 @@
-import { NavLink, Outlet, Link } from "react-router-dom";
+import { NavLink, Link, useLocation, useOutlet } from "react-router-dom";
+import { motion } from "framer-motion";
 import { LayoutDashboard, CalendarDays, Grid3x3, Users, Settings, LogOut, ExternalLink } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useSite } from "../context/SiteContext";
@@ -14,9 +15,11 @@ const NAV = [
 export default function StaffLayout() {
   const { user, logout } = useAuth();
   const name = useSite().info?.name || "";
+  const { pathname } = useLocation();
+  const outlet = useOutlet();
 
   const linkCls = ({ isActive }) =>
-    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-200 ${isActive ? "bg-[#120092] text-white brand-shadow" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`;
+    `relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-300 ${isActive ? "text-white" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`;
 
   return (
     <div className="min-h-screen bg-[#F8F8FC] lg:flex">
@@ -34,7 +37,12 @@ export default function StaffLayout() {
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 lg:flex-col lg:px-4">
           {NAV.map(({ to, label, icon: Icon, end, id }) => (
             <NavLink key={to} to={to} end={end} className={linkCls} data-testid={id}>
-              <Icon className="h-4 w-4 shrink-0" /><span className="whitespace-nowrap">{label}</span>
+              {({ isActive }) => (
+                <>
+                  {isActive && <motion.span layoutId="nav-active-pill" transition={{ type: "spring", stiffness: 380, damping: 32 }} className="absolute inset-0 rounded-xl bg-[#120092] brand-shadow" />}
+                  <Icon className="relative h-4 w-4 shrink-0" /><span className="relative whitespace-nowrap">{label}</span>
+                </>
+              )}
             </NavLink>
           ))}
           <Link to="/" target="_blank" data-testid="nav-public-site" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 hover:text-[#120092]">
@@ -53,7 +61,14 @@ export default function StaffLayout() {
         </div>
       </aside>
       <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
-        <Outlet />
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: { type: "spring", stiffness: 260, damping: 30 } }}
+            data-testid="page-transition"
+          >
+            {outlet}
+          </motion.div>
       </main>
     </div>
   );

@@ -6,7 +6,7 @@ import { RES_STATUS, ResBadge, btnPrimary, card } from "../lib/status";
 import { PageHeader } from "../components/StaffLayout";
 import { ReservationDialog, CompleteDialog } from "../components/ReservationDialog";
 import { DateDrum, shiftDate } from "../components/DateDrum";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Input } from "../components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
 
@@ -80,7 +80,6 @@ const shift = shiftDate;
 const listSlide = {
   enter: (dir) => ({ x: dir * 48, opacity: 0 }),
   center: { x: 0, opacity: 1, transition: { type: "spring", stiffness: 260, damping: 28 } },
-  exit: (dir) => ({ x: dir * -48, opacity: 0, transition: { duration: 0.15 } }),
 };
 
 export default function Reservations() {
@@ -136,8 +135,7 @@ export default function Reservations() {
       </div>
 
       <div className={`${card} overflow-hidden`}>
-        <AnimatePresence mode="wait" initial={false} custom={loaded.dir}>
-          <motion.div key={loaded.date || "init"} custom={loaded.dir} variants={listSlide} initial="enter" animate="center" exit="exit" data-testid="res-day-list">
+          <motion.div key={loaded.date || "init"} custom={loaded.dir} variants={listSlide} initial="enter" animate="center" data-testid="res-day-list">
             <div className="flex items-center justify-between border-b border-border px-5 py-3 text-sm">
               <span className="font-semibold">{prettyDate(loaded.date || date)}</span><span className="text-slate-500" data-testid="day-covers">{covers} covers</span>
             </div>
@@ -146,7 +144,6 @@ export default function Reservations() {
               {shown.map((r) => <ResRow key={r.id} r={r} onChange={load} onEdit={setEditing} />)}
             </div>
           </motion.div>
-        </AnimatePresence>
       </div>
 
       <ReservationDialog value={editing} defaultDate={date} onClose={() => setEditing(null)} onSaved={load} />

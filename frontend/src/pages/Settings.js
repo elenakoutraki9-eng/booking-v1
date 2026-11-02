@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { api, formatApiError } from "../lib/api";
@@ -157,11 +158,14 @@ export default function Settings() {
       <div className="mb-6 flex gap-1 overflow-x-auto rounded-full border border-border bg-white p-1 sm:inline-flex" data-testid="settings-tabs">
         {tabs.map((t) => (
           <button key={t.id} onClick={() => setParams({ tab: t.id })} data-testid={`settings-tab-${t.id}`}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === t.id ? "bg-[#120092] text-white" : "text-slate-500 hover:text-slate-900"}`}>{t.label}</button>
+            className={`relative whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-300 ${tab === t.id ? "text-white" : "text-slate-500 hover:text-slate-900"}`}>
+            {tab === t.id && <motion.span layoutId="settings-tab-pill" transition={{ type: "spring", stiffness: 400, damping: 32 }} className="absolute inset-0 rounded-full bg-[#120092]" />}
+            <span className="relative">{t.label}</span>
+          </button>
         ))}
       </div>
       {s && (
-        <div className="max-w-4xl">
+        <motion.div key={tab} className="max-w-4xl" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0, transition: { type: "spring", stiffness: 280, damping: 30 } }}>
           {tab === "general" && <RestaurantInfo s0={s} isAdmin={isAdmin} onSaved={setS} />}
           {tab === "booking" && <BookingPageEditor s={s} onSaved={setS} />}
           {tab === "today" && <TodayLayoutEditor s={s} onSaved={setS} />}
@@ -172,7 +176,7 @@ export default function Settings() {
               <ChangePassword />
             </div>
           )}
-        </div>
+        </motion.div>
       )}
     </div>
   );
