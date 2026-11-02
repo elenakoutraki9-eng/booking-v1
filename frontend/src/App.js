@@ -14,7 +14,7 @@ import Settings from "./pages/Settings";
 function Protected({ children }) {
   const { user } = useAuth();
   if (user === null)
-    return <div className="flex min-h-screen items-center justify-center font-mono text-xs uppercase tracking-[0.3em] text-[#786E65]">Loading…</div>;
+    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Loading…</div>;
   if (!user) return <Navigate to="/staff/login" replace />;
   return children;
 }
@@ -36,7 +36,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
-      <Toaster theme="dark" position="top-right" richColors />
+      <Toaster theme="light" position="bottom-right" richColors />
     </AuthProvider>
   );
 }

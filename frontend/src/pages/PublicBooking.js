@@ -1,14 +1,32 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Phone, Mail, Clock, Users, CalendarDays, Check, ArrowRight } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Check, ArrowRight, CalendarDays, Minus, Plus, Sparkles, Star } from "lucide-react";
 import { toast } from "sonner";
 import { api, formatApiError, toDateStr, prettyDate } from "../lib/api";
+import { btnPrimary, btnGhost, card, eyebrow } from "../lib/status";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
+import { Calendar } from "../components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 
-const Label = ({ children }) => (
-  <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.25em] text-[#D4A359]/90">{children}</div>
-);
+const Label = ({ children }) => <div className="mb-2 text-sm font-semibold text-slate-800">{children}</div>;
+const chip = (on) => `rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${on ? "border-[#120092] bg-[#120092] text-white" : "border-border bg-white text-slate-600 hover:border-[#120092]/40 hover:text-[#120092]"}`;
+
+function DatePick({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger data-testid="booking-date-input" className="flex h-12 w-full items-center gap-3 rounded-xl border border-input bg-white px-4 text-left text-sm font-medium hover:border-[#120092]/40">
+        <CalendarDays className="h-4 w-4 text-[#120092]" />{prettyDate(value)}
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar mode="single" selected={new Date(`${value}T12:00:00`)} disabled={{ before: today }}
+          onSelect={(d) => { if (d) { onChange(toDateStr(d)); setOpen(false); } }} initialFocus />
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 function BookingForm({ info, onDone }) {
   const [f, setF] = useState({ date: toDateStr(new Date()), time: "", party_size: 2, zone: "", name: "", email: "", phone: "", notes: "" });
@@ -17,6 +35,7 @@ function BookingForm({ info, onDone }) {
   const today = toDateStr(new Date());
   const nowHM = new Date().toTimeString().slice(0, 5);
   const slots = (info?.slots || []).filter((s) => f.date !== today || s > nowHM);
+  const max = info?.max_party_online || 8;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -35,98 +54,100 @@ function BookingForm({ info, onDone }) {
   return (
     <form onSubmit={submit} className="space-y-7" data-testid="booking-form">
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Date</Label>
-          <Input type="date" min={today} value={f.date} onChange={(e) => setF({ ...f, date: e.target.value, time: "" })} required data-testid="booking-date-input" className="h-12 bg-[#120E0D] [color-scheme:dark]" />
-        </div>
+        <div><Label>Date</Label><DatePick value={f.date} onChange={(date) => setF({ ...f, date, time: "" })} /></div>
         <div>
           <Label>Guests</Label>
-          <div className="flex h-12 items-center rounded-md border border-input bg-[#120E0D]">
-            <button type="button" data-testid="booking-guests-minus" onClick={() => setF({ ...f, party_size: Math.max(1, f.party_size - 1) })} className="h-full w-12 text-xl text-[#B0A59A] transition-colors hover:text-[#D4A359]">−</button>
-            <span data-testid="booking-guests-value" className="flex-1 text-center font-outfit text-lg">{f.party_size}</span>
-            <button type="button" data-testid="booking-guests-plus" onClick={() => setF({ ...f, party_size: Math.min(info?.max_party_online || 8, f.party_size + 1) })} className="h-full w-12 text-xl text-[#B0A59A] transition-colors hover:text-[#D4A359]">+</button>
+          <div className="flex h-12 items-center rounded-xl border border-input bg-white">
+            <button type="button" data-testid="booking-guests-minus" onClick={() => setF({ ...f, party_size: Math.max(1, f.party_size - 1) })} className="flex h-full w-12 items-center justify-center text-slate-500 hover:text-[#120092]"><Minus className="h-4 w-4" /></button>
+            <span data-testid="booking-guests-value" className="flex-1 text-center font-display text-lg font-semibold">{f.party_size}</span>
+            <button type="button" data-testid="booking-guests-plus" onClick={() => setF({ ...f, party_size: Math.min(max, f.party_size + 1) })} className="flex h-full w-12 items-center justify-center text-slate-500 hover:text-[#120092]"><Plus className="h-4 w-4" /></button>
           </div>
         </div>
       </div>
-
       <div>
         <Label>Time</Label>
         {slots.length === 0 ? (
-          <p className="text-sm text-[#786E65]" data-testid="booking-no-slots">No more times available today — please choose another date.</p>
+          <p className="text-sm text-slate-500" data-testid="booking-no-slots">No more times available today — please choose another date.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {slots.map((s) => (
-              <button key={s} type="button" data-testid={`booking-slot-${s.replace(":", "")}`} onClick={() => setF({ ...f, time: s })}
-                className={`rounded-full border px-3.5 py-1.5 font-mono text-xs transition-colors duration-200 ${f.time === s ? "border-[#D4A359] bg-[#D4A359] text-[#120E0D]" : "border-[#332B25] text-[#B0A59A] hover:border-[#D4A359]/60 hover:text-[#F7F4EF]"}`}>
-                {s}
-              </button>
+              <button key={s} type="button" data-testid={`booking-slot-${s.replace(":", "")}`} onClick={() => setF({ ...f, time: s })} className={chip(f.time === s)}>{s}</button>
             ))}
           </div>
         )}
       </div>
-
       <div>
         <Label>Seating preference</Label>
         <div className="flex flex-wrap gap-2">
           {["", ...(info?.zones || [])].map((z) => (
-            <button key={z || "any"} type="button" data-testid={`booking-zone-${(z || "any").replace(" ", "-").toLowerCase()}`} onClick={() => setF({ ...f, zone: z })}
-              className={`rounded-lg border px-4 py-2 text-sm transition-colors duration-200 ${f.zone === z ? "border-[#D4A359] text-[#D4A359]" : "border-[#332B25] text-[#B0A59A] hover:text-[#F7F4EF]"}`}>
-              {z || "No preference"}
-            </button>
+            <button key={z || "any"} type="button" data-testid={`booking-zone-${(z || "any").replace(" ", "-").toLowerCase()}`} onClick={() => setF({ ...f, zone: z })} className={chip(f.zone === z)}>{z || "No preference"}</button>
           ))}
         </div>
       </div>
-
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="sm:col-span-2">
-          <Label>Full name</Label>
-          <Input value={f.name} onChange={set("name")} required data-testid="booking-name-input" className="h-12 bg-[#120E0D]" />
-        </div>
-        <div>
-          <Label>Email</Label>
-          <Input type="email" value={f.email} onChange={set("email")} required data-testid="booking-email-input" className="h-12 bg-[#120E0D]" />
-        </div>
-        <div>
-          <Label>Phone</Label>
-          <Input type="tel" value={f.phone} onChange={set("phone")} required minLength={5} data-testid="booking-phone-input" className="h-12 bg-[#120E0D]" />
-        </div>
-        <div className="sm:col-span-2">
-          <Label>Allergies, occasion or special requests</Label>
-          <Textarea value={f.notes} onChange={set("notes")} rows={3} data-testid="booking-notes-input" className="bg-[#120E0D]" placeholder="e.g. nut allergy, anniversary, high chair" />
-        </div>
+        <div className="sm:col-span-2"><Label>Full name</Label><Input value={f.name} onChange={set("name")} required data-testid="booking-name-input" className="h-12 rounded-xl" /></div>
+        <div><Label>Email</Label><Input type="email" value={f.email} onChange={set("email")} required data-testid="booking-email-input" className="h-12 rounded-xl" /></div>
+        <div><Label>Phone</Label><Input type="tel" value={f.phone} onChange={set("phone")} required minLength={5} data-testid="booking-phone-input" className="h-12 rounded-xl" /></div>
+        <div className="sm:col-span-2"><Label>Allergies, occasion or requests</Label><Textarea value={f.notes} onChange={set("notes")} rows={3} data-testid="booking-notes-input" className="rounded-xl" placeholder="e.g. nut allergy, anniversary, high chair" /></div>
       </div>
-
-      <button type="submit" disabled={busy} data-testid="booking-submit-btn"
-        className="group flex w-full items-center justify-center gap-3 rounded-full bg-[#D4A359] py-4 font-outfit text-sm font-semibold uppercase tracking-[0.2em] text-[#120E0D] transition-colors duration-200 hover:bg-[#E5B86C] disabled:opacity-60">
-        {busy ? "Sending…" : "Request reservation"}
-        <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+      <button type="submit" disabled={busy} data-testid="booking-submit-btn" className={`${btnPrimary} brand-shadow group w-full py-4 text-base`}>
+        {busy ? "Sending…" : "Request reservation"}<ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
       </button>
-      {info && f.party_size >= info.max_party_online && (
-        <p className="text-xs text-[#786E65]">Larger party? Call us on {info.phone}.</p>
-      )}
+      {info && f.party_size >= max && <p className="text-xs text-slate-500">Larger party? Call us on {info.phone}.</p>}
     </form>
   );
 }
 
 function Confirmation({ data, onReset }) {
   return (
-    <div className="rise space-y-6 py-6 text-center" data-testid="booking-confirmation">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[#D4A359] text-[#D4A359]">
-        <Check className="h-7 w-7" />
-      </div>
-      <h3 className="font-serif-d text-4xl">Thank you, {data.name.split(" ")[0]}</h3>
-      <p className="text-[#B0A59A]">
-        Your request for <span className="text-[#F7F4EF]">{data.party_size} guests</span> on{" "}
-        <span className="text-[#F7F4EF]">{prettyDate(data.date)} at {data.time}</span> has been received. We'll confirm shortly.
+    <div className="rise space-y-6 py-8 text-center" data-testid="booking-confirmation">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#120092] text-white brand-shadow"><Check className="h-8 w-8" /></div>
+      <h3 className="font-display text-4xl font-semibold">You're on the list, {data.name.split(" ")[0]}.</h3>
+      <p className="mx-auto max-w-md text-slate-600">
+        Request for <b className="text-slate-900">{data.party_size} guests</b> on <b className="text-slate-900">{prettyDate(data.date)} at {data.time}</b> received. We'll confirm shortly.
       </p>
-      <div className="inline-block rounded-xl border border-[#332B25] px-8 py-4">
-        <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-[#786E65]">Booking reference</div>
-        <div className="mt-1 font-mono text-2xl tracking-[0.3em] text-[#D4A359]" data-testid="booking-reference">{data.ref}</div>
+      <div className="inline-block rounded-2xl border border-dashed border-[#120092]/40 bg-[#120092]/[0.04] px-8 py-4">
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Booking reference</div>
+        <div className="mt-1 font-mono text-2xl font-medium tracking-[0.3em] text-[#120092]" data-testid="booking-reference">{data.ref}</div>
       </div>
-      <div>
-        <button onClick={onReset} data-testid="booking-new-btn" className="text-sm text-[#B0A59A] underline-offset-4 hover:text-[#D4A359] hover:underline">Make another reservation</button>
-      </div>
+      <div><button onClick={onReset} data-testid="booking-new-btn" className={btnGhost}>Make another reservation</button></div>
     </div>
+  );
+}
+
+function Hero({ info }) {
+  return (
+    <section className="hero-glow relative overflow-hidden">
+      <div className="mx-auto grid max-w-7xl items-center gap-14 px-6 pb-24 pt-16 lg:grid-cols-12 lg:px-10 lg:pt-24">
+        <div className="lg:col-span-6">
+          <span className="rise inline-flex items-center gap-2 rounded-full border border-[#120092]/15 bg-[#120092]/[0.05] px-3 py-1 text-xs font-semibold text-[#120092]">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Now taking reservations
+          </span>
+          <h1 className="rise d1 mt-6 font-display text-5xl font-bold leading-[0.95] sm:text-6xl lg:text-7xl">{info?.name}</h1>
+          <p className="rise d2 mt-3 font-display text-2xl font-medium text-[#120092]">{info?.tagline}</p>
+          <p className="rise d2 mt-6 max-w-lg text-base text-slate-600 md:text-lg">{info?.description}</p>
+          <div className="rise d3 mt-10 flex flex-wrap gap-3">
+            <a href="#book" data-testid="hero-reserve-btn" className={`${btnPrimary} brand-shadow px-7 py-3.5`}>Reserve a table <ArrowRight className="h-4 w-4" /></a>
+            <a href="#visit" data-testid="hero-visit-btn" className={`${btnGhost} px-6 py-3.5`}>Hours & location</a>
+          </div>
+          <div className="rise d4 mt-12 flex items-center gap-3 text-sm text-slate-500"><Clock className="h-4 w-4 text-[#120092]" />{info?.hours}</div>
+        </div>
+        <div className="relative lg:col-span-6">
+          <div className="rise d2 overflow-hidden rounded-[2rem] border border-border card-shadow">
+            <img src="/images/hero.jpg" alt="Dining room" className="h-[420px] w-full object-cover lg:h-[520px]" />
+          </div>
+          <div className="float absolute -left-4 bottom-10 hidden rounded-2xl border border-border bg-white/90 p-4 backdrop-blur-xl card-shadow sm:block lg:-left-10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#120092] text-white"><Check className="h-5 w-5" /></div>
+              <div><div className="text-sm font-semibold">Table for 2 · 19:30</div><div className="text-xs text-slate-500">Confirmed in minutes</div></div>
+            </div>
+          </div>
+          <div className="absolute -right-3 top-8 hidden rounded-2xl border border-border bg-white/90 px-4 py-3 backdrop-blur-xl card-shadow sm:block">
+            <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-[#120092]" /> Seasonal menu</div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -139,60 +160,66 @@ export default function PublicBooking() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#120E0D]">
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center justify-between px-6 py-6 lg:px-12">
-        <div className="font-serif-d text-2xl tracking-wide" data-testid="public-brand-name">{info?.name || " "}</div>
-        <div className="flex items-center gap-6">
-          <a href="#book" data-testid="nav-book-link" className="font-mono text-[11px] uppercase tracking-[0.25em] text-[#F7F4EF]/80 hover:text-[#D4A359]">Reserve</a>
-          <Link to="/staff" data-testid="nav-staff-link" className="font-mono text-[11px] uppercase tracking-[0.25em] text-[#F7F4EF]/50 hover:text-[#D4A359]">Staff</Link>
+    <div className="min-h-screen bg-white">
+      <header className="sticky top-0 z-30 border-b border-border/70 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#120092] font-display text-lg font-bold text-white">{info?.name?.[0]}</span>
+            <span className="font-display text-xl font-semibold" data-testid="public-brand-name">{info?.name}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/staff" data-testid="nav-staff-link" className="hidden px-3 text-sm font-medium text-slate-500 hover:text-[#120092] sm:block">Staff login</Link>
+            <a href="#book" data-testid="nav-book-link" className={btnPrimary}>Book a table</a>
+          </div>
         </div>
       </header>
 
-      <section className="grain relative flex min-h-[92vh] items-end overflow-hidden">
-        <img src="/images/hero.jpg" alt="Dining room" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#120E0D] via-[#120E0D]/60 to-[#120E0D]/30" />
-        <div className="relative z-10 max-w-4xl px-6 pb-20 lg:px-12">
-          <div className="rise mb-6 font-mono text-xs uppercase tracking-[0.35em] text-[#D4A359]">{info?.tagline}</div>
-          <h1 className="rise d1 font-serif-d text-5xl font-medium leading-[0.95] tracking-tight sm:text-6xl lg:text-8xl">{info?.name}</h1>
-          <p className="rise d2 mt-6 max-w-xl text-base text-[#B0A59A] md:text-lg">{info?.description}</p>
-          <a href="#book" data-testid="hero-reserve-btn" className="rise d3 mt-10 inline-flex items-center gap-3 rounded-full bg-[#D4A359] px-8 py-4 font-outfit text-sm font-semibold uppercase tracking-[0.2em] text-[#120E0D] transition-colors hover:bg-[#E5B86C]">
-            Reserve a table <ArrowRight className="h-4 w-4" />
-          </a>
-        </div>
-      </section>
+      <Hero info={info} />
 
-      <section id="book" className="mx-auto grid max-w-7xl gap-16 px-6 py-24 lg:grid-cols-12 lg:px-12">
-        <div className="lg:col-span-5">
-          <div className="font-mono text-xs uppercase tracking-[0.3em] text-[#D4A359]">Reservations</div>
-          <h2 className="mt-4 font-serif-d text-4xl leading-tight sm:text-5xl">An evening, held for you.</h2>
-          <p className="mt-6 text-[#B0A59A]">Choose your date, time and party size. Our team reviews every request and confirms by email or phone.</p>
-          <div className="mt-12 space-y-5 text-sm">
-            {[[Clock, info?.hours, "info-hours"], [MapPin, info?.address, "info-address"], [Phone, info?.phone, "info-phone"], [Mail, info?.email, "info-email"]].map(([Icon, v, id]) => (
-              <div key={id} className="flex items-start gap-4" data-testid={id}>
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#D4A359]" />
-                <span className="text-[#B0A59A]">{v}</span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-12 hidden grid-cols-2 gap-4 lg:grid">
-            <img src="/images/dish.jpg" alt="Signature dish" className="h-56 w-full rounded-xl object-cover" />
-            <img src="/images/bar.jpg" alt="Cocktail bar" className="mt-10 h-56 w-full rounded-xl object-cover" />
-          </div>
-        </div>
-        <div className="lg:col-span-7">
-          <div className="rounded-2xl border border-[#332B25] bg-[#1C1714] p-6 sm:p-10">
-            <div className="mb-8 flex items-center gap-3 text-[#786E65]">
-              <CalendarDays className="h-4 w-4" /><span className="font-mono text-[10px] uppercase tracking-[0.3em]">Book a table</span>
-              <Users className="ml-auto h-4 w-4" />
+      <section id="book" className="dot-grid border-y border-border">
+        <div className="mx-auto grid max-w-7xl gap-14 px-6 py-24 lg:grid-cols-12 lg:px-10">
+          <div className="lg:col-span-5">
+            <div className={eyebrow}>Reservations</div>
+            <h2 className="mt-3 font-display text-4xl font-bold leading-tight sm:text-5xl">Book in under a minute.</h2>
+            <p className="mt-5 max-w-md text-slate-600">Pick a date, time and party size. Our team reviews every request and confirms by email or phone.</p>
+            <ol className="mt-10 space-y-4">
+              {["Choose your date & time", "Tell us who's coming", "Get your booking reference"].map((s, i) => (
+                <li key={s} className="flex items-center gap-4">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#120092]/20 bg-white font-display font-semibold text-[#120092]">{i + 1}</span>
+                  <span className="font-medium text-slate-800">{s}</span>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-12 hidden grid-cols-2 gap-4 lg:grid">
+              <img src="/images/dish.jpg" alt="Signature dish" className="h-56 w-full rounded-2xl object-cover card-shadow" />
+              <img src="/images/bar.jpg" alt="Cocktail bar" className="mt-10 h-56 w-full rounded-2xl object-cover card-shadow" />
             </div>
-            {done ? <Confirmation data={done} onReset={() => setDone(null)} /> : <BookingForm info={info} onDone={setDone} />}
+          </div>
+          <div className="lg:col-span-7">
+            <div className={`${card} p-6 sm:p-10`}>
+              {done ? <Confirmation data={done} onReset={() => setDone(null)} /> : <BookingForm info={info} onDone={setDone} />}
+            </div>
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-[#332B25] px-6 py-10 lg:px-12">
-        <div className="flex flex-col justify-between gap-4 text-xs text-[#786E65] sm:flex-row">
-          <span className="font-serif-d text-lg text-[#B0A59A]">{info?.name}</span>
+      <section id="visit" className="mx-auto max-w-7xl px-6 py-24 lg:px-10">
+        <div className={eyebrow}>Visit us</div>
+        <h2 className="mt-3 font-display text-4xl font-bold">Find your way here.</h2>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[[Clock, "Hours", info?.hours, "info-hours"], [MapPin, "Address", info?.address, "info-address"], [Phone, "Phone", info?.phone, "info-phone"], [Mail, "Email", info?.email, "info-email"]].map(([Icon, t, v, id]) => (
+            <div key={id} className={`${card} p-6 transition-transform duration-200 hover:-translate-y-1`} data-testid={id}>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#120092]/[0.07] text-[#120092]"><Icon className="h-5 w-5" /></div>
+              <div className="mt-5 text-sm font-semibold">{t}</div>
+              <div className="mt-1 text-sm text-slate-600">{v}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <footer className="border-t border-border">
+        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 px-6 py-8 text-sm text-slate-500 sm:flex-row lg:px-10">
+          <span className="flex items-center gap-2 font-display font-semibold text-slate-800"><Star className="h-4 w-4 text-[#120092]" />{info?.name}</span>
           <span>© {new Date().getFullYear()} · {info?.address}</span>
         </div>
       </footer>

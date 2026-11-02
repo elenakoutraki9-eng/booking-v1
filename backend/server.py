@@ -105,7 +105,9 @@ class LoginIn(BaseModel):
 @api.post("/auth/login")
 async def login(body: LoginIn, request: Request, response: Response):
     email = body.email.lower()
-    ident = f"{request.client.host if request.client else 'x'}:{email}"
+    fwd = request.headers.get("x-forwarded-for", "")
+    ip = fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "x")
+    ident = f"{ip}:{email}"
     att = await db.login_attempts.find_one({"identifier": ident})
     if att and att.get("count", 0) >= 5:
         locked_until = datetime.fromisoformat(att["last"]) + timedelta(minutes=15)
@@ -224,8 +226,8 @@ class SettingsIn(BaseModel):
     phone: str = ""
     email: str = ""
     hours: str = ""
-    slot_start: str = "12:00"
-    slot_end: str = "22:30"
+    slot_start: str = Field("12:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    slot_end: str = Field("22:30", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     slot_interval: int = Field(30, ge=15, le=120)
     max_party_online: int = Field(8, ge=1, le=50)
     avg_spend: float = Field(45, ge=0)
@@ -265,6 +267,8 @@ async def get_settings(_: dict = Depends(get_current_user)):
 
 @api.put("/settings")
 async def update_settings(body: SettingsIn, _: dict = Depends(require_admin)):
+    if body.slot_start > body.slot_end:
+        raise HTTPException(400, "First booking time must be before the last booking time")
     await get_settings_doc()
     await db.settings.update_one({"key": "main"}, {"$set": body.model_dump()})
     return await get_settings_doc()
@@ -336,6 +340,10 @@ async def create_guest(body: GuestIn, _: dict = Depends(get_current_user)):
 
 @api.get("/guests/{gid}")
 async def get_guest(gid: str, _: dict = Depends(get_current_user)):
+    return await fetch_guest(gid)
+
+
+async def fetch_guest(gid: str):
     g = await db.guests.find_one({"id": gid})
     if not g:
         raise HTTPException(404, "Guest not found")
@@ -352,7 +360,7 @@ async def update_guest(gid: str, body: GuestUpdate, _: dict = Depends(get_curren
     await db.guests.update_one({"id": gid}, {"$set": upd})
     if "name" in upd:
         await db.reservations.update_many({"guest_id": gid}, {"$set": {"guest_name": upd["name"]}})
-    return await get_guest(gid, _)
+    return await fetch_guest(gid)
 
 
 @api.post("/guests/{gid}/notes")
@@ -427,17 +435,22 @@ async def update_table(tid: str, body: TableUpdate, _: dict = Depends(get_curren
     if not t:
         raise HTTPException(404, "Table not found")
     upd = {k: v for k, v in body.model_dump().items() if v is not None}
-    if upd.get("status") == "free":
-        upd.update({"current_reservation_id": None, "seated_at": None})
-    if upd.get("status") == "cleaning" and t.get("status") == "seated" and t.get("current_reservation_id"):
-        await complete_reservation(t["current_reservation_id"])
-        upd.update({"current_reservation_id": None, "seated_at": None})
+    new_status = upd.get("status")
+    if new_status and new_status != "seated":
+        was_seated = t.get("status") == "seated"
+        if was_seated and t.get("current_reservation_id"):
+            await complete_reservation(t["current_reservation_id"])
+        if new_status != "reserved" or was_seated:
+            upd.update({"current_reservation_id": None, "seated_at": None})
     await db.tables.update_one({"id": tid}, {"$set": upd})
     return clean(await db.tables.find_one({"id": tid}))
 
 
 @api.delete("/tables/{tid}")
 async def delete_table(tid: str, _: dict = Depends(get_current_user)):
+    t = await db.tables.find_one({"id": tid})
+    if t and t.get("status") == "seated" and t.get("current_reservation_id"):
+        await complete_reservation(t["current_reservation_id"])
     await db.tables.delete_one({"id": tid})
     await db.reservations.update_many({"table_id": tid}, {"$set": {"table_id": None}})
     return {"ok": True}
@@ -529,10 +542,13 @@ async def public_reserve(body: PublicReservationIn):
     s = await get_settings_doc()
     if body.party_size > s["max_party_online"]:
         raise HTTPException(400, f"For parties larger than {s['max_party_online']}, please call us.")
-    if body.date < datetime.now().strftime("%Y-%m-%d"):
+    now = datetime.now()
+    if body.date < now.strftime("%Y-%m-%d"):
         raise HTTPException(400, "Please choose a date in the future")
-    if body.time not in build_slots(s):
+    if body.time not in build_slots(s) or (body.date == now.strftime("%Y-%m-%d") and body.time <= now.strftime("%H:%M")):
         raise HTTPException(400, "Please choose one of the available times")
+    if body.zone and body.zone not in ZONES:
+        raise HTTPException(400, "Unknown seating area")
     guest = await find_or_create_guest(body.name, body.email, body.phone)
     r = {"id": new_id(), "ref": make_ref(), "guest_id": guest["id"], "guest_name": body.name, "email": body.email.lower(),
          "phone": body.phone, "party_size": body.party_size, "date": body.date, "time": body.time, "zone": body.zone or "",
@@ -589,9 +605,19 @@ async def update_reservation(rid: str, body: ReservationUpdate, _: dict = Depend
         validate_date_time(upd.get("date", r["date"]), upd.get("time", r["time"]))
     new_status = upd.get("status")
     table_id = upd.get("table_id", r.get("table_id"))
+    if r["status"] == "seated" and "table_id" in upd and upd["table_id"] != r.get("table_id") and new_status in (None, "seated"):
+        if not upd["table_id"]:
+            raise HTTPException(400, "A seated booking needs a table")
+        if r.get("table_id"):
+            await db.tables.update_one({"id": r["table_id"], "current_reservation_id": rid},
+                                       {"$set": {"status": "cleaning", "current_reservation_id": None, "seated_at": None}})
+        new_status = upd["status"] = "seated"
     if new_status == "seated":
         if not table_id:
             raise HTTPException(400, "Assign a table before seating")
+        res_day = datetime.strptime(upd.get("date", r["date"]), "%Y-%m-%d").date()
+        if abs((res_day - datetime.now().date()).days) > 1:
+            raise HTTPException(400, "Only today's bookings can be seated")
         t = await db.tables.find_one({"id": table_id})
         if not t:
             raise HTTPException(404, "Table not found")

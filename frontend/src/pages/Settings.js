@@ -3,22 +3,25 @@ import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { api, formatApiError } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { btnPrimary, btnGhost, card } from "../lib/status";
 import { PageHeader } from "../components/StaffLayout";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
-const L = ({ children }) => <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.2em] text-[#786E65]">{children}</div>;
+const L = ({ children }) => <div className="mb-1.5 text-xs font-semibold text-slate-500">{children}</div>;
 const Card = ({ title, children }) => (
-  <section className="rounded-xl border border-[#332B25] bg-[#1C1714] p-6">
-    <h2 className="mb-5 font-outfit text-lg">{title}</h2>{children}
+  <section className={`${card} p-6`}>
+    <h2 className="mb-5 font-display text-xl font-bold">{title}</h2>{children}
   </section>
 );
 
 function RestaurantInfo({ isAdmin }) {
   const [s, setS] = useState(null);
   useEffect(() => {
-    api.get("/settings").then((r) => setS(r.data));
+    let alive = true;
+    api.get("/settings").then((r) => { if (alive) setS((cur) => cur || r.data); });
+    return () => { alive = false; };
   }, []);
   if (!s) return null;
   const f = (k, type = "text") => ({ type, value: s[k] ?? "", disabled: !isAdmin, onChange: (e) => setS({ ...s, [k]: type === "number" ? Number(e.target.value) : e.target.value }), "data-testid": `settings-${k}` });
@@ -41,13 +44,13 @@ function RestaurantInfo({ isAdmin }) {
         <div><L>Opening hours</L><Input {...f("hours")} /></div>
         <div><L>Phone</L><Input {...f("phone")} /></div>
         <div><L>Email</L><Input {...f("email")} /></div>
-        <div><L>First booking time</L><Input {...f("slot_start", "time")} className="[color-scheme:dark]" /></div>
-        <div><L>Last booking time</L><Input {...f("slot_end", "time")} className="[color-scheme:dark]" /></div>
+        <div><L>First booking time</L><Input {...f("slot_start", "time")} required /></div>
+        <div><L>Last booking time</L><Input {...f("slot_end", "time")} required /></div>
         <div><L>Slot interval (min)</L><Input {...f("slot_interval", "number")} min={15} max={120} /></div>
         <div><L>Max party size online</L><Input {...f("max_party_online", "number")} min={1} max={50} /></div>
         {isAdmin ? (
-          <button type="submit" data-testid="settings-save-btn" className="rounded-full bg-[#D4A359] py-2.5 text-sm font-semibold text-[#120E0D] hover:bg-[#E5B86C] sm:col-span-2">Save settings</button>
-        ) : <p className="text-xs text-[#786E65] sm:col-span-2">Only the owner can change these.</p>}
+          <button type="submit" data-testid="settings-save-btn" className={`${btnPrimary} sm:col-span-2`}>Save settings</button>
+        ) : <p className="text-xs text-slate-400 sm:col-span-2">Only the owner can change these.</p>}
       </form>
     </Card>
   );
@@ -64,30 +67,29 @@ function StaffAccounts() {
   useEffect(() => {
     load();
   }, [load]);
-  const add = async (e) => {
-    e.preventDefault();
+  const call = async (fn, msg) => {
     try {
-      await api.post("/staff", f);
-      toast.success("Staff account created");
-      setF({ name: "", email: "", password: "", role: "staff" });
+      await fn();
+      toast.success(msg);
       load();
     } catch (err) {
       toast.error(formatApiError(err));
     }
   };
-  const remove = async (u) => {
-    if (!window.confirm(`Remove ${u.email}?`)) return;
-    await api.delete(`/staff/${u.id}`);
-    load();
+  const add = (e) => {
+    e.preventDefault();
+    call(async () => { await api.post("/staff", f); setF({ name: "", email: "", password: "", role: "staff" }); }, "Staff account created");
   };
+  const remove = (u) => window.confirm(`Remove ${u.email}?`) && call(() => api.delete(`/staff/${u.id}`), "Staff account removed");
   return (
     <Card title="Staff accounts">
-      <ul className="mb-6 divide-y divide-[#332B25]" data-testid="staff-list">
+      <ul className="mb-6 divide-y divide-border" data-testid="staff-list">
         {list.map((u) => (
           <li key={u.id} className="flex items-center gap-3 py-3 text-sm" data-testid={`staff-row-${u.email}`}>
-            <div className="flex-1"><div>{u.name}</div><div className="text-xs text-[#786E65]">{u.email}</div></div>
-            <span className="font-mono text-[10px] uppercase tracking-widest text-[#D4A359]">{u.role === "admin" ? "Owner" : "Staff"}</span>
-            {u.id !== user.id && <button onClick={() => remove(u)} data-testid={`staff-delete-${u.email}`} className="text-[#786E65] hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>}
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#120092]/10 text-xs font-bold text-[#120092]">{u.name[0]}</span>
+            <div className="flex-1"><div className="font-semibold">{u.name}</div><div className="text-xs text-slate-400">{u.email}</div></div>
+            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${u.role === "admin" ? "bg-[#120092] text-white" : "bg-slate-100 text-slate-600"}`}>{u.role === "admin" ? "Owner" : "Staff"}</span>
+            {u.id !== user.id && <button onClick={() => remove(u)} data-testid={`staff-delete-${u.email}`} className="text-slate-400 hover:text-rose-600"><Trash2 className="h-4 w-4" /></button>}
           </li>
         ))}
       </ul>
@@ -99,7 +101,7 @@ function StaffAccounts() {
           <SelectTrigger data-testid="staff-role-select"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value="staff">Staff</SelectItem><SelectItem value="admin">Owner</SelectItem></SelectContent>
         </Select>
-        <button type="submit" data-testid="staff-add-btn" className="rounded-full border border-[#D4A359]/60 py-2.5 text-sm text-[#D4A359] hover:bg-[#D4A359]/10 sm:col-span-2">Add staff member</button>
+        <button type="submit" data-testid="staff-add-btn" className={`${btnGhost} sm:col-span-2`}>Add staff member</button>
       </form>
     </Card>
   );
@@ -122,7 +124,7 @@ function ChangePassword() {
       <form onSubmit={submit} className="space-y-3">
         <Input type="password" placeholder="Current password" value={f.current_password} onChange={(e) => setF({ ...f, current_password: e.target.value })} required data-testid="pw-current-input" />
         <Input type="password" placeholder="New password (min 8)" minLength={8} value={f.new_password} onChange={(e) => setF({ ...f, new_password: e.target.value })} required data-testid="pw-new-input" />
-        <button type="submit" data-testid="pw-save-btn" className="w-full rounded-full border border-[#332B25] py-2.5 text-sm hover:border-[#D4A359]/60">Update password</button>
+        <button type="submit" data-testid="pw-save-btn" className={`${btnGhost} w-full`}>Update password</button>
       </form>
     </Card>
   );

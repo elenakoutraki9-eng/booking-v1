@@ -2,14 +2,25 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Plus, Move, Check } from "lucide-react";
 import { toast } from "sonner";
 import { api, formatApiError } from "../lib/api";
-import { TABLE_STATUS, ZONES } from "../lib/status";
+import { TABLE_STATUS, ZONES, btnPrimary, btnGhost } from "../lib/status";
 import { PageHeader } from "../components/StaffLayout";
 import { TablePanel, TableFormDialog } from "../components/TablePanel";
+import { Sheet, SheetContent, SheetTitle } from "../components/ui/sheet";
 
-const SIZE = { round: "h-20 w-20 rounded-full", square: "h-20 w-20 rounded-xl", rect: "h-20 w-36 rounded-xl" };
+const SIZE = { round: "h-20 w-20 rounded-full", square: "h-20 w-20 rounded-2xl", rect: "h-20 w-36 rounded-2xl" };
 
 function minutesSince(iso) {
   return iso ? Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000)) : 0;
+}
+
+function useIsWide() {
+  const [wide, setWide] = useState(window.innerWidth >= 1280);
+  useEffect(() => {
+    const on = () => setWide(window.innerWidth >= 1280);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return wide;
 }
 
 function TableNode({ t, selected, editMode, onSelect, onDragEnd, containerRef }) {
@@ -45,11 +56,11 @@ function TableNode({ t, selected, editMode, onSelect, onDragEnd, containerRef })
       onClick={() => !editMode && onSelect(t)}
       onPointerDown={down} onPointerMove={move} onPointerUp={up}
       style={{ left: `${pos.x}%`, top: `${pos.y}%`, touchAction: editMode ? "none" : "auto" }}
-      className={`absolute flex flex-col items-center justify-center border-2 transition-[box-shadow,transform] duration-200 ${SIZE[t.shape]} ${s.cls} ${selected ? "scale-105 ring-2 ring-[#D4A359] ring-offset-2 ring-offset-[#16110f]" : "hover:scale-105"} ${t.status === "seated" ? "pulse-seated" : ""} ${editMode ? "cursor-move" : "cursor-pointer"}`}
+      className={`absolute flex flex-col items-center justify-center border-2 bg-white shadow-sm transition-[box-shadow,transform] duration-200 ${SIZE[t.shape]} ${s.cls} ${selected ? "scale-105 ring-4 ring-[#120092]/25 ring-offset-2" : "hover:scale-105 hover:shadow-md"} ${t.status === "seated" ? "pulse-seated" : ""} ${editMode ? "cursor-move" : "cursor-pointer"}`}
     >
-      <span className="font-outfit text-base font-semibold text-[#F7F4EF]">{t.name}</span>
-      <span className="font-mono text-[10px] opacity-80">{t.capacity}p</span>
-      {t.status === "seated" && <span className="font-mono text-[10px]" data-testid={`floor-timer-${t.name}`}>{minutesSince(t.seated_at)}m</span>}
+      <span className="font-display text-base font-bold text-slate-900">{t.name}</span>
+      <span className="text-[11px] font-medium opacity-80">{t.capacity} seats</span>
+      {t.status === "seated" && <span className="font-mono text-[10px] font-medium" data-testid={`floor-timer-${t.name}`}>{minutesSince(t.seated_at)}m</span>}
     </button>
   );
 }
@@ -62,6 +73,7 @@ export default function FloorPlan() {
   const [adding, setAdding] = useState(false);
   const [, tick] = useState(0);
   const ref = useRef(null);
+  const wide = useIsWide();
 
   const load = useCallback(async () => {
     const { data } = await api.get("/tables");
@@ -85,44 +97,50 @@ export default function FloorPlan() {
 
   const shown = tables.filter((t) => zone === "all" || t.zone === zone);
   const selected = tables.find((t) => t.id === selectedId);
+  const panel = <TablePanel table={selected} onChange={load} onDeleted={() => { setSelectedId(null); load(); }} />;
 
   return (
     <div>
       <PageHeader eyebrow="Live" title="Floor plan">
-        <button onClick={() => setEditMode(!editMode)} data-testid="floor-edit-toggle"
-          className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition-colors ${editMode ? "border-[#D4A359] bg-[#D4A359] text-[#120E0D]" : "border-[#332B25] text-[#B0A59A] hover:text-[#F7F4EF]"}`}>
+        <button onClick={() => setEditMode(!editMode)} data-testid="floor-edit-toggle" className={editMode ? btnPrimary : btnGhost}>
           {editMode ? <><Check className="h-4 w-4" /> Done arranging</> : <><Move className="h-4 w-4" /> Arrange tables</>}
         </button>
-        <button onClick={() => setAdding(true)} data-testid="floor-add-table-btn" className="flex items-center gap-2 rounded-full bg-[#D4A359] px-4 py-2 text-sm font-semibold text-[#120E0D] hover:bg-[#E5B86C]">
-          <Plus className="h-4 w-4" /> Add table
-        </button>
+        <button onClick={() => setAdding(true)} data-testid="floor-add-table-btn" className={`${btnPrimary} brand-shadow`}><Plus className="h-4 w-4" /> Add table</button>
       </PageHeader>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {["all", ...ZONES].map((z) => (
-          <button key={z} onClick={() => setZone(z)} data-testid={`floor-zone-${z.replace(" ", "-").toLowerCase()}`}
-            className={`rounded-full border px-3 py-1 text-xs ${zone === z ? "border-[#D4A359] text-[#D4A359]" : "border-[#332B25] text-[#786E65] hover:text-[#F7F4EF]"}`}>{z === "all" ? "All zones" : z}</button>
-        ))}
+        <div className="flex rounded-full border border-border bg-white p-1">
+          {["all", ...ZONES].map((z) => (
+            <button key={z} onClick={() => setZone(z)} data-testid={`floor-zone-${z.replace(" ", "-").toLowerCase()}`}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${zone === z ? "bg-[#120092] text-white" : "text-slate-500 hover:text-slate-900"}`}>{z === "all" ? "All" : z}</button>
+          ))}
+        </div>
         <div className="ml-auto flex flex-wrap gap-4">
           {Object.entries(TABLE_STATUS).map(([k, s]) => (
-            <span key={k} className="flex items-center gap-1.5 text-xs text-[#B0A59A]"><span className={`h-2 w-2 rounded-full ${s.dot}`} />{s.label}</span>
+            <span key={k} className="flex items-center gap-1.5 text-xs font-medium text-slate-600"><span className={`h-2 w-2 rounded-full ${s.dot}`} />{s.label}</span>
           ))}
         </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-12">
-        <div className="overflow-x-auto rounded-xl border border-[#332B25] xl:col-span-8">
-          <div ref={ref} className="floor-grid relative h-[560px] min-w-[640px]" data-testid="floor-canvas">
-            {editMode && <div className="absolute left-3 top-3 z-10 rounded-md bg-[#D4A359]/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-[#D4A359]">Drag tables to rearrange</div>}
+        <div className="overflow-x-auto rounded-2xl border border-border card-shadow xl:col-span-8">
+          <div ref={ref} className="dot-grid relative h-[560px] min-w-[640px]" data-testid="floor-canvas">
+            {editMode && <div className="absolute left-3 top-3 z-10 rounded-full bg-[#120092] px-3 py-1 text-xs font-semibold text-white">Drag tables to rearrange</div>}
             {shown.map((t) => (
               <TableNode key={t.id} t={t} selected={t.id === selectedId} editMode={editMode} onSelect={(x) => setSelectedId(x.id)} onDragEnd={onDragEnd} containerRef={ref} />
             ))}
           </div>
         </div>
-        <div className="xl:col-span-4">
-          <TablePanel table={selected} onChange={load} onDeleted={() => { setSelectedId(null); load(); }} />
-        </div>
+        {wide && <div className="xl:col-span-4">{panel}</div>}
       </div>
+      {!wide && (
+        <Sheet open={!!selected} onOpenChange={(o) => !o && setSelectedId(null)}>
+          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-3xl bg-[#F8F8FC] p-4" data-testid="table-sheet">
+            <SheetTitle className="sr-only">Table details</SheetTitle>
+            {panel}
+          </SheetContent>
+        </Sheet>
+      )}
       <TableFormDialog open={adding} onOpenChange={setAdding} onSaved={load} />
     </div>
   );

@@ -34,7 +34,7 @@ export function formatApiError(e) {
 }
 
 export const eur = (n) =>
-  new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n || 0);
+  new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", minimumFractionDigits: 2 }).format(n || 0);
 
 export const toDateStr = (d) => {
   const z = (n) => String(n).padStart(2, "0");

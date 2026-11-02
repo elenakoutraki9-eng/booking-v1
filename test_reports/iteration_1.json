@@ -1,0 +1,54 @@
+{
+  "summary": "First full e2e run of Maison Lumière restaurant app. Backend: 36 pytest cases (auth, RBAC, security on 15 protected endpoints, public booking validation, reservation lifecycle, tables/walk-in, guests/notes, settings, staff, change-password). 34/36 pass. Frontend: Playwright covered public booking -> reference, login/wrong pw/redirect/logout, reservations confirm->assign table->seat->finish with bill, 'Assign a table before seating' toast, New reservation dialog, floor plan (clean, walk-in w/ timer, seat booking from panel, finish, reserved/free, add/edit/delete table, drag persists after reload), guests (auto-created + email match, search, VIP filter, allergies/preferences persist, notes add/delete, history, new guest), dashboard stats in €, settings -> public page, staff account RBAC + change password. All core flows work. Main defects: brute-force lockout ineffective behind ingress, invalid slot_start saved -> public page 500.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login", "issue": "Brute-force lockout never triggers through the public URL. Identifier uses request.client.host, which is the ingress pod IP and rotates (seen 10.39.151.120 and 10.64.128.75), so failures split across keys (3+3) and the 6th attempt still gets 401 instead of 429. Fix: take the client IP from the first X-Forwarded-For entry, or key the lockout on email only.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "PUT /api/settings", "issue": "slot_start/slot_end are not validated as HH:MM. Saving slot_start='abc' returns 200, then GET /api/public/info returns 500 (build_slots crashes) and the public booking page breaks. Add a regex/validator and check slot_start <= slot_end."},
+      {"endpoint": "PATCH /api/tables/{id} status=free (or reserved) on a seated table", "issue": "Clears current_reservation_id but leaves the reservation in 'seated' status forever, so it is orphaned and the guest's visit is never counted. The panel shows a 'Free' button for seated tables. Complete or revert the reservation, or hide those buttons while seated."},
+      {"endpoint": "PATCH /api/reservations/{id}", "issue": "Changing table_id on a seated reservation leaves the old table 'seated'. There is no date check, so a booking for tomorrow can be seated now; last_visit is then set to the reservation date (a future date) instead of the actual visit date."},
+      {"endpoint": "PATCH /api/guests/{bad_id}", "issue": "Returns 404 (OK), but update_guest calls get_guest(gid, _), passing a dependency value positionally. It works, but it's fragile."},
+      {"endpoint": "POST /api/public/reservations", "issue": "Zone not validated against ZONES. Today's past time slots are only filtered client-side; the API accepts a time earlier today."},
+      {"endpoint": "DELETE /api/tables/{id}", "issue": "Deleting a seated table leaves its reservation 'seated' with table_id null."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Settings RestaurantInfo", "issue": "GET /settings fires twice on mount (StrictMode/effect). If the user types before the 2nd response lands, their edits are silently overwritten, then 'Settings saved' persists the old value. Reproduced once in automation. Guard with an abort or ignore flag.", "selector": "[data-testid='settings-tagline']", "priority": "LOW"},
+      {"component": "GuestSheet saveProfile", "issue": "toast.success('Guest profile saved') fires even when the PATCH fails, because save() swallows the error.", "selector": "[data-testid='guest-save-btn']", "priority": "LOW"},
+      {"component": "TablePanel setStatus / remove, GuestSheet addNote/delNote, ReservationActions remove", "issue": "No try/catch, so API errors are unhandled promise rejections with no toast.", "selector": "[data-testid='table-set-free']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All staff pages", "issues": ["Sonner toasts sit top-right on top of page header action buttons (New reservation, Add table) and the GuestSheet title/close button for several seconds. Move them to bottom-right."]},
+      {"screen": "Money display", "issues": ["eur() rounds to whole euros: a €85.50 bill shows as €86 in guest list, sheet and history. Show 2 decimals."]},
+      {"screen": "Mobile 390px", "issues": ["Reservations day chips are cramped; date and 'covers' wrap onto 4-5 lines.", "On Floor plan, the table panel renders below the 560px canvas, so after tapping a table the user has to scroll to see it. Consider a bottom sheet."]},
+      {"screen": "Public booking", "issues": ["Uses the native <input type=date> instead of a shadcn Calendar/Popover; the same applies to staff date inputs."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_restaurant_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix login lockout identifier to use X-Forwarded-For first IP (or email-only) so 6th failed attempt returns 429",
+    "Validate slot_start/slot_end (HH:MM, start<=end) in SettingsIn to prevent /api/public/info 500",
+    "Handle reservation when a seated table is set to free/reserved or deleted (complete/revert it), and free old table when a seated reservation's table_id changes",
+    "Show cents in eur() formatter",
+    "Move toasts to bottom-right to avoid covering header buttons",
+    "Fix GuestSheet false-success toast; add try/catch on TablePanel/GuestSheet/ReservationActions API calls",
+    "Guard Settings form from double-fetch overwriting user edits"
+  ],
+  "critical_code_review_comments": [
+    "server.py is 691 lines, close to the 700 limit. Split it into routers (auth, reservations, tables, guests, settings).",
+    "Server uses datetime.now() (container local, UTC) for 'today', but the frontend uses the browser's local date. For a European restaurant, bookings near midnight can land on different days. Store a restaurant timezone in settings and use it.",
+    "No double-booking or table-capacity check when assigning tables; only the UI shows '(too small)'.",
+    "Playbook checks: bcrypt hash starts with $2b$ (OK); httpOnly Secure SameSite=None cookies (OK); CORS returns explicit origin with credentials=true (OK); seed_admin only inserts if missing (OK); brute-force lockout broken behind ingress (FAIL)."
+  ],
+  "updated_files": ["/app/backend/tests/test_restaurant_api.py"],
+  "success_rate": {"backend": "94% (34/36)", "frontend": "100% of requested flows functional (minor UX issues)"},
+  "test_credentials": "Owner gonabip117@digeros.com / Maison-Owner-2026 (unchanged). Temporary staff accounts created and deleted.",
+  "seed_data_creation": "None left behind. All TEST_ reservations/guests/staff/tables deleted, tagline restored, all seeded tables reset to free, test login_attempts removed.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=... pytest /app/backend/tests/test_restaurant_api.py. Known failing: test_bruteforce_lockout (ingress IP rotation) and test_bad_slot_start (no validation). Server clock is UTC (Nov 2026). After ~22:30 UTC no slots remain today on the public page, so book for tomorrow. Settings inputs need ~2s after load before typing (double fetch race).",
+  "rca of the issue": "Lockout: login() builds ident=f'{request.client.host}:{email}'. Behind the k8s ingress, request.client.host is the proxy pod IP; DB showed two records for the same email (10.39.151.120 count 3, 10.64.128.75 count 3), so neither reached 5. Mitigation: use request.headers['x-forwarded-for'].split(',')[0].strip(), falling back to client.host. Settings 500: SettingsIn.slot_start is a plain str, and build_slots does map(int, s.split(':')), which raises ValueError on bad input."
+}
