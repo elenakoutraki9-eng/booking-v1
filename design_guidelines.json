@@ -1,0 +1,125 @@
+{
+  "project_name": "L'Étoile & Bar Management System",
+  "app_type": "hybrid_fullstack",
+  "currency": "EUR (€)",
+  "design_archetype": "Luxury Hospitality & Precision Operations (Archetype 5 Luxury + Tactical Precision)",
+  "typography": {
+    "headline_font": "Cormorant Garamond, serif",
+    "subheading_font": "Outfit, sans-serif",
+    "body_font": "Plus Jakarta Sans, sans-serif",
+    "mono_font": "JetBrains Mono, monospace",
+    "hierarchy": {
+      "h1_hero": "text-4xl sm:text-5xl lg:text-6xl font-serif font-semibold tracking-tight leading-tight",
+      "h2_section": "text-2xl sm:text-3xl lg:text-4xl font-serif font-medium tracking-tight",
+      "h3_card": "text-xl sm:text-2xl font-sans font-semibold tracking-normal",
+      "body_main": "text-base font-sans text-stone-300 leading-relaxed",
+      "label_micro": "text-xs font-mono uppercase tracking-[0.2em] text-amber-400/90"
+    }
+  },
+  "colors": {
+    "theme": "Dark Warm Hospitality with Tactical Accents",
+    "base_background": "#120E0D",
+    "surface_card": "#1C1714",
+    "surface_card_hover": "#26201C",
+    "border_subtle": "#332B25",
+    "border_highlight": "#D4A359",
+    "text_primary": "#F7F4EF",
+    "text_secondary": "#B0A59A",
+    "text_muted": "#786E65",
+    "accent_primary": "#D4A359",
+    "accent_hover": "#E5B86C",
+    "accent_burgundy": "#8B263E",
+    "status_colors": {
+      "free_available": {
+        "bg": "bg-emerald-950/60",
+        "border": "border-emerald-500/40",
+        "text": "text-emerald-300",
+        "badge": "bg-emerald-500"
+      },
+      "seated": {
+        "bg": "bg-amber-950/60",
+        "border": "border-amber-500/40",
+        "text": "text-amber-300",
+        "badge": "bg-amber-500"
+      },
+      "reserved": {
+        "bg": "bg-blue-950/60",
+        "border": "border-blue-500/40",
+        "text": "text-blue-300",
+        "badge": "bg-blue-500"
+      },
+      "needs_cleaning": {
+        "bg": "bg-rose-950/60",
+        "border": "border-rose-500/40",
+        "text": "text-rose-300",
+        "badge": "bg-rose-500"
+      },
+      "vip_tag": {
+        "bg": "bg-purple-950/70",
+        "border": "border-purple-400/50",
+        "text": "text-purple-200"
+      }
+    }
+  },
+  "layout_and_spacing": {
+    "container_padding": "px-4 sm:px-6 lg:px-12 py-8",
+    "grid_gap": "gap-6 lg:gap-8",
+    "border_radius": "rounded-xl",
+    "glassmorphism": "backdrop-blur-xl bg-stone-900/80 border border-amber-900/30",
+    "header_nav": "sticky top-0 z-50 backdrop-blur-md bg-[#120E0D]/90 border-b border-[#332B25]"
+  },
+  "image_urls": {
+    "hero_background": "https://images.unsplash.com/photo-1640902106532-47dd3a2e833e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHw0fHxsdXh1cnklMjByZXN0YXVyYW50JTIwY29ja3RhaWwlMjBiYXIlMjBpbnRlcmlvciUyMGF0bW9zcGhlcmV8ZW58MHx8fHwxNzkzNjYwMTUyfDA&ixlib=rb-4.1.0&q=85",
+    "dining_ambiance": "https://images.unsplash.com/photo-1578474846511-04ba529f0b88?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwyfHxyZXN0YXVyYW50JTIwZGluaW5nJTIwdGFibGUlMjBsYXlvdXQlMjBtb29kfGVufDB8fHx8MTc5MzY2MDE1Mnww&ixlib=rb-4.1.0&q=85",
+    "cocktail_bar": "https://images.unsplash.com/photo-1569924995012-c4c706bfcd51?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHwyfHxsdXh1cnklMjByZXN0YXVyYW50JTIwY29ja3RhaWwlMjBiYXIlMjBpbnRlcmlvciUyMGF0bW9zcGhlcmV8ZW58MHx8fHwxNzkzNjYwMTUyfDA&ixlib=rb-4.1.0&q=85",
+    "signature_dish_1": "https://images.unsplash.com/photo-1689672235501-6dc1e56d454c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHw0fHxnb3VybWV0JTIwZm9vZCUyMGZpbmUlMjBkaW5pbmclMjBwbGF0ZSUyMGRpc2h8ZW58MHx8fHwxNzkzNjYwMTUyfDA&ixlib=rb-4.1.0&q=85",
+    "signature_dish_2": "https://images.unsplash.com/photo-1676471926534-d5c9771909fa?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwyfHxnb3VybWV0JTIwZm9vZCUyMGZpbmUlMjBkaW5pbmclMjBwbGF0ZSUyMGRpc2h8ZW58MHx8fHwxNzkzNjYwMTUyfDA&ixlib=rb-4.1.0&q=85"
+  },
+  "key_modules_and_features": {
+    "public_booking_page": {
+      "path": "/",
+      "sections": [
+        "Hero section with warm video/photo overlay and 'Reserve a Table' primary CTA",
+        "Step-by-step table reservation form (Date, Time slot, Guest count, Seating zone preference: Main Dining / Cocktail Bar / Patio, Special requests & Dietary allergies)",
+        "Instant confirmation screen with booking reference code",
+        "Atmosphere & Signature Experience showcase",
+        "Opening hours, location map mock, contact info"
+      ]
+    },
+    "staff_portal": {
+      "path": "/staff",
+      "login": "Email & Password authentication with pre-populated demo credentials",
+      "views": [
+        {
+          "name": "Live Floor Plan",
+          "features": "Interactive 2D table layout with status indicators (Free, Seated, Reserved, Needs Cleaning). Drag or click tables to edit status, assign reservation, view current bill/timer, mark cleaned."
+        },
+        {
+          "name": "Reservations Calendar & Day View",
+          "features": "Day/Week timeline switcher with filter by status (Pending, Confirmed, Seated, Completed, Cancelled, No-show). Quick status update actions and search."
+        },
+        {
+          "name": "Guest List & CRM",
+          "features": "Guest profile card list with total visits, lifetime spend in EUR, dietary notes/allergies, VIP tag toggle, past reservation history, and staff notes."
+        },
+        {
+          "name": "Quick Walk-in Seating",
+          "features": "One-click seating tool to quickly assign an unreserved table to walk-in guests."
+        }
+      ]
+    }
+  },
+  "component_guidelines": {
+    "buttons": "Pill or sleek rounded buttons (`rounded-lg`), subtle glow on hover, primary gold CTA `#D4A359` with dark text `#120E0D`, secondary dark warm outline button.",
+    "tables": "Dark warm background, soft gold/bronze header text, hover row highlighting, status badges with clear high-contrast dots.",
+    "floor_plan_nodes": "Visual shape representations (round tables for 2-4p, rectangular for 6-8p, bar counters). Status color borders, capacity badges, live timer for seated tables.",
+    "modals": "Dark backdrop overlay `bg-black/75 backdrop-blur-sm`, clean borders `border-[#332B25]`, clear close buttons."
+  },
+  "instructions_to_main_agent": [
+    "Use JavaScript / React (.js files) according to existing repository configuration.",
+    "Ensure currency symbol is always Euro (€).",
+    "Ensure all interactive elements have data-testid attributes (e.g. data-testid='reservation-submit-btn', data-testid='table-status-free').",
+    "Never use generic Inter font for headings; stick to Cormorant Garamond for titles and Plus Jakarta Sans/Outfit for clean operational UI.",
+    "Keep staff back-office login seamless with pre-filled demo accounts for easy testing."
+  ]
+}

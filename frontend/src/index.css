@@ -1,0 +1,86 @@
+@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Outfit:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    font-family: "Plus Jakarta Sans", sans-serif;
+    background: #120E0D;
+    color: #F7F4EF;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+::selection { background: #D4A359; color: #120E0D; }
+
+.font-serif-d { font-family: "Cormorant Garamond", serif; }
+.font-outfit { font-family: "Outfit", sans-serif; }
+.font-mono { font-family: "JetBrains Mono", monospace; }
+
+@layer base {
+    :root {
+        --background: 15 17% 6%;
+        --foreground: 37 33% 95%;
+        --card: 24 14% 10%;
+        --card-foreground: 37 33% 95%;
+        --popover: 24 14% 10%;
+        --popover-foreground: 37 33% 95%;
+        --primary: 36 58% 59%;
+        --primary-foreground: 15 17% 6%;
+        --secondary: 25 14% 13%;
+        --secondary-foreground: 37 33% 95%;
+        --muted: 25 14% 13%;
+        --muted-foreground: 29 10% 65%;
+        --accent: 25 14% 16%;
+        --accent-foreground: 37 33% 95%;
+        --destructive: 345 57% 35%;
+        --destructive-foreground: 37 33% 95%;
+        --border: 25 16% 17%;
+        --input: 25 16% 20%;
+        --ring: 36 58% 59%;
+        --radius: 0.6rem;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
+}
+
+@layer base {
+    [data-debug-wrapper="true"] {
+        display: contents !important;
+    }
+
+    [data-debug-wrapper="true"] > * {
+        margin-left: inherit;
+        margin-right: inherit;
+        margin-top: inherit;
+        margin-bottom: inherit;
+        padding-left: inherit;
+        padding-right: inherit;
+        padding-top: inherit;
+        padding-bottom: inherit;
+        column-gap: inherit;
+        row-gap: inherit;
+        gap: inherit;
+        border-left-width: inherit;
+        border-right-width: inherit;
+        border-top-width: inherit;
+        border-bottom-width: inherit;
+        border-left-style: inherit;
+        border-right-style: inherit;
+        border-top-style: inherit;
+        border-bottom-style: inherit;
+        border-left-color: inherit;
+        border-right-color: inherit;
+        border-top-color: inherit;
+        border-bottom-color: inherit;
+    }
+}
