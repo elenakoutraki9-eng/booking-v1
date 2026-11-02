@@ -1,0 +1,43 @@
+{
+  "summary": "Iteration 2: redesign (white + #120092) visual review plus regression and fix verification. Backend: 50 pytest cases (36 regression + 14 new in test_iteration2_fixes.py), 49/50 pass. All iteration-1 fixes verified: XFF lockout gives 429 on the 6th attempt via the public URL; settings returns 422 for bad HH:MM and 400 for start>end; a seated table set to free/reserved/cleaning completes its reservation (visits+1); moving a seated reservation sends old table->cleaning and new->seated; seating a booking 3 days out gives 400; unknown zone and past time today give 400; deleting a seated table completes its reservation. One new bug: moving a seated reservation onto an occupied table is not atomic. Frontend (Playwright, desktop 1920 and mobile 390): public booking with calendar popover -> booking-reference OK; login/logout; confirm -> 'Assign a table before seating' toast -> assign P1 in dialog -> seat -> finish with €85.50 (guest list, sheet and history show €85.50); guest VIP/allergies/notes; floor add table, walk-in with timer, 'Set status' hidden while seated, finish with bill, mark clean, reserved/free, edit capacity, drag persists after reload, delete; settings save with immediate typing (no overwrite), start>end error toast; staff RBAC UI (staff user sees read-only settings, no staff list); mobile shows 3 day chips, table bottom sheet (table-sheet) opens and closes, no horizontal overflow. Toasts sit bottom-right. No page errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PATCH /api/reservations/{id} (table_id change on a seated reservation)", "issue": "Not atomic. The old table is set to 'cleaning' (and current_reservation_id cleared) BEFORE the new table's occupancy check. If the new table is already seated by another booking, the API returns 400 but the old table is already freed to cleaning, while the reservation stays 'seated' with the old table_id. Result: an orphaned seated reservation. Reproduced by test_move_seated_to_occupied_table_is_atomic. Fix: validate the new table (exists, not occupied by another reservation, date window) before touching the old table."},
+      {"endpoint": "PATCH /api/reservations/{id} status=seated", "issue": "The seat window is abs(days) <= 1, so tomorrow's booking can be seated today. guest.last_visit is then set to the reservation date (a future date). Seen in the UI: Last visit 'Tue 3 Nov' on Mon 2 Nov. Consider using the actual seated/completed date for last_visit."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "FloorPlan TableNode (round, seated)", "issue": "On an 80px round table, name + seats + timer overflow: the timer text overlaps the bottom border and is partly clipped.", "selector": "[data-testid='floor-timer-TEST_X1']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Staff Reservations header, ReservationDialog date/time, Settings first/last booking time", "issues": ["Still use native <input type=date/time>. They render in US format (11/03/2026, 07:30 PM) for a Euro restaurant and don't match the shadcn Calendar now used on the public page."]},
+      {"screen": "GuestSheet", "issues": ["Bottom-right toasts overlap the lower part of the right-side guest sheet (Visit history area) for a few seconds. Minor."]},
+      {"screen": "Login (desktop)", "issues": ["Right brand panel is mostly empty #120092 above the bottom copy. Acceptable, but could use an illustration or product shot."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_restaurant_api.py", "/app/backend/tests/test_iteration2_fixes.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "In update_reservation, when a seated reservation's table_id changes, validate the target table (exists, not occupied by another reservation) BEFORE setting the old table to cleaning",
+    "Optional: set guest last_visit to the actual completion date, not the reservation date",
+    "Optional: replace native date/time inputs in staff screens with shadcn Calendar/time select (24h format)",
+    "Optional: fix round-table timer overflow on floor plan"
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 718 lines, over the 700-line guideline. Split it into routers (auth/staff, settings/public, guests, tables, reservations, dashboard).",
+    "update_table still allows PATCH status='seated' directly with no reservation (API only; the UI hides it), which creates a seated table with no guest.",
+    "There is no capacity or double-booking check on table assignment (carried over from iteration 1).",
+    "Server 'today' uses container-local UTC while the client uses browser local time. Timezone mismatch near midnight is still unaddressed (carried over).",
+    "Playbook: bcrypt $2b$ OK, httpOnly Secure SameSite=None cookies OK, CORS explicit origin + credentials OK, lockout now OK (XFF), seed_admin insert-only OK."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration2_fixes.py"],
+  "success_rate": {"backend": "98% (49/50)", "frontend": "100% of requested flows pass"},
+  "test_credentials": "Owner gonabip117@digeros.com / Maison-Owner-2026 (unchanged)",
+  "seed_data_creation": "None left behind. Deleted all TEST_ reservations, guests, staff and tables plus test login_attempts. All seeded tables are free. Tagline and slots restored.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=<url> pytest /app/backend/tests -q. Known failing: test_move_seated_to_occupied_table_is_atomic. Server clock is UTC (Nov 2026). After ~22:30 UTC the public page shows no slots today, so pick tomorrow in the calendar (button[name=day] inside [data-radix-popper-content-wrapper]). Settings GET fires twice (StrictMode) but edits are no longer overwritten.",
+  "rca of the issue": "update_reservation: the block `if r['status']=='seated' and 'table_id' in upd ...` runs db.tables.update_one(old table -> cleaning) first. Only later does the `new_status=='seated'` block raise HTTPException(400, '<table> is already occupied'). There's no transaction or rollback, so the side effect persists. Repro: seat R1 on A and R2 on B, then PATCH R1 {table_id: B} -> 400, and table A is now 'cleaning' with current_reservation_id=None while R1 is still seated on A. Mitigation: move the new-table lookup and occupancy/date checks before the old-table update."
+}

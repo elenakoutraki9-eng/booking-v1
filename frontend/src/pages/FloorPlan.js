@@ -60,7 +60,7 @@ function TableNode({ t, selected, editMode, onSelect, onDragEnd, containerRef })
     >
       <span className="font-display text-base font-bold text-slate-900">{t.name}</span>
       <span className="text-[11px] font-medium opacity-80">{t.capacity} seats</span>
-      {t.status === "seated" && <span className="font-mono text-[10px] font-medium" data-testid={`floor-timer-${t.name}`}>{minutesSince(t.seated_at)}m</span>}
+      {t.status === "seated" && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-amber-500 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-white" data-testid={`floor-timer-${t.name}`}>{minutesSince(t.seated_at)}m</span>}
     </button>
   );
 }

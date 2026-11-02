@@ -533,7 +533,7 @@ async def complete_reservation(rid: str, spend: Optional[float] = None):
     await db.reservations.update_one({"id": rid}, {"$set": upd})
     if r.get("guest_id"):
         await db.guests.update_one({"id": r["guest_id"]}, {"$inc": {"visits": 1, "total_spend": spend or r.get("spend") or 0},
-                                                           "$set": {"last_visit": r["date"]}})
+                                                           "$set": {"last_visit": min(r["date"], datetime.now().strftime("%Y-%m-%d"))}})
 
 
 @api.post("/public/reservations")
@@ -608,6 +608,11 @@ async def update_reservation(rid: str, body: ReservationUpdate, _: dict = Depend
     if r["status"] == "seated" and "table_id" in upd and upd["table_id"] != r.get("table_id") and new_status in (None, "seated"):
         if not upd["table_id"]:
             raise HTTPException(400, "A seated booking needs a table")
+        nt = await db.tables.find_one({"id": upd["table_id"]})
+        if not nt:
+            raise HTTPException(404, "Table not found")
+        if nt["status"] == "seated" and nt.get("current_reservation_id") != rid:
+            raise HTTPException(400, f"{nt['name']} is already occupied")
         if r.get("table_id"):
             await db.tables.update_one({"id": r["table_id"], "current_reservation_id": rid},
                                        {"$set": {"status": "cleaning", "current_reservation_id": None, "seated_at": None}})
