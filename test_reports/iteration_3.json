@@ -1,0 +1,46 @@
+{
+  "summary": "Iteration 3: tested the new owner customization end-to-end. Backend: 72 pytest tests (22 new in test_iteration3_customization.py + 50 regression from iterations 1-2), 71 passed. Frontend: Playwright covered the Today layout (show/hide, reorder, title, save, reset, all-hidden state, first visible stat highlighted, Customize button owner-only), Seating areas (add, duplicate rejected, rename, delete blocked with toast, delete of an empty area allowed, new area shows in floor filter, table dialog, reservation dialog and public chips), Booking page (badge/CTA/tagline/description/headings, 4 show/hide switches, JPG upload -> /api/public/assets -> public hero image), General tab (name shows in sidebar, other tabs' fields kept), staff permissions (only General read-only + Team & password; PUT returns 403), and a regression smoke run (create reservation, seat via floor plan, finish with spend, walk-in, guest sheet history). Everything requested works. Found 2 backend bugs in update_zones: swapping area names merges tables (data corruption), and a name made only of spaces is saved as an empty string.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "PUT /api/settings/zones", "issue": "Swapping or chaining renames merges tables. Example: [{name:'Terrace',original:'Bar'},{name:'Bar',original:'Terrace'}] runs update_many one after another, so Bar->Terrace and then Terrace->Bar puts all 5 tables (B1-B3, P1, P2) in 'Bar'. Reproduced and then restored by hand. The same happens to reservations.zone. Fix: rename in two passes (original -> temporary unique value -> new name), or build a mapping and apply it once per document.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "PUT /api/settings/zones", "issue": "A name made only of spaces ('   ') passes min_length=1 and is saved as '' after strip(), giving zones [..., '']. The UI's disabled Save button blocks this, but the API accepts it. Add a validator that strips first and rejects empty names (400/422). Test: TestZones::test_whitespace_name_rejected."},
+      {"endpoint": "POST/PATCH /api/tables", "issue": "zone is not checked against settings.zones, so the API can create tables in areas that don't exist (the public booking endpoint does check its zone)."},
+      {"endpoint": "POST /api/assets", "issue": "Replaced or unused uploads are never deleted from db.assets, so orphaned images pile up in MongoDB."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ZonesEditor", "issue": "When removing an area fails (it still has tables), the error toast appears but the row stays removed in the editor until reload. A later Save would try the delete again. Restore the rows from server state when saving fails.", "selector": "[data-testid=zones-save-btn]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Public booking zone chips", "issues": ["data-testid uses z.replace(' ', '-'), which only replaces the first space. 'Main Dining Room' becomes 'booking-zone-main-dining room'. Use /\\s+/g as FloorPlan.js does."]},
+      {"screen": "Reservations header", "issues": ["date-picker-input is a native <input type=date>, not the shadcn Calendar/Popover used on the public page."]},
+      {"screen": "Public hero", "issues": ["The badge and floating hero cards have no data-testid (only booking-steps/booking-gallery/visit-section/hero-visit-btn do)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration3_customization.py", "/app/backend/tests/test_iteration2_fixes.py", "/app/backend/tests/test_restaurant_api.py", "/app/test_reports/pytest/pytest_results_it3.xml"],
+  "action_items": [
+    "HIGH: fix update_zones rename so swapped or chained renames don't merge tables and reservations (two-pass rename through temporary values)",
+    "Reject zone names that are empty after strip in ZoneItem (field_validator)",
+    "Optional: check table zone against settings.zones on create/update",
+    "Optional: ZonesEditor should reset rows from server state when saving fails",
+    "Optional: fix the booking-zone testid to replace all spaces"
+  ],
+  "critical_code_review_comments": [
+    "server.py update_zones: renames applied one after another with update_many on the same collection can chain into each other. This is the root cause of the merge bug.",
+    "server.py ZoneItem: strip() runs after validation, so a name of spaces only passes min_length.",
+    "Dashboard.js returns null until /settings loads and has no error state; if /settings fails, the Today page stays blank.",
+    "SettingsIn still has non-empty defaults (name='Restaurant', cta_label), but exclude_unset makes partial PUTs safe. Verified that saving one tab doesn't overwrite another."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration3_customization.py"],
+  "success_rate": {"backend": "98.6% (71/72; 1 failing = whitespace zone bug) + zone swap bug found manually", "frontend": "100% of requested flows"},
+  "test_credentials": "Owner gonabip117@digeros.com / Maison-Owner-2026 (from /app/memory/test_credentials.md). TEST staff accounts were created and deleted during tests.",
+  "seed_data_creation": "None kept. After the run: settings exactly match the original snapshot (zones Main Dining/Bar/Terrace, default dashboard, default booking content); db.assets emptied (2 test uploads); TEST_ reservations and guests deleted; tables T1-T6, B1-B3, P1-P2 are free in their original zones; only the owner user remains.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest /app/backend/tests (set REACT_APP_BACKEND_URL; the suite runs in parallel via xdist). test_iteration3_customization.py restores zones and content defaults in its owner fixture teardown. To retest the swap bug: PUT /api/settings/zones with Bar<->Terrace swapped, check GET /api/tables, then restore P1/P2 to Terrace and the zone order. Seating a reservation needs a table first (an iteration-2 rule); use floor plan -> table -> assign-seat-*.",
+  "rca of the issue": "Zone swap: update_zones loops over body.zones and runs db.tables.update_many({zone: original}, {zone: new}) in order. For Bar->Terrace then Terrace->Bar, the first step moves the Bar tables into 'Terrace', and the second step then moves every 'Terrace' table (the original Terrace tables plus the moved Bar tables) into 'Bar'. Fix: first set each renamed zone to a unique temporary value (e.g. '__tmp__<uuid>') for tables and reservations, then set each temporary value to its final name."
+}

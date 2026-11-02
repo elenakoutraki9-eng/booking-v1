@@ -81,7 +81,7 @@ function BookingForm({ info, onDone }) {
         <Label>Seating preference</Label>
         <div className="flex flex-wrap gap-2">
           {["", ...(info?.zones || [])].map((z) => (
-            <button key={z || "any"} type="button" data-testid={`booking-zone-${(z || "any").replace(" ", "-").toLowerCase()}`} onClick={() => setF({ ...f, zone: z })} className={chip(f.zone === z)}>{z || "No preference"}</button>
+            <button key={z || "any"} type="button" data-testid={`booking-zone-${(z || "any").replace(/\s+/g, "-").toLowerCase()}`} onClick={() => setF({ ...f, zone: z })} className={chip(f.zone === z)}>{z || "No preference"}</button>
           ))}
         </div>
       </div>
@@ -122,7 +122,7 @@ function Hero({ info }) {
       <div className="mx-auto grid max-w-7xl items-center gap-14 px-6 pb-24 pt-16 lg:grid-cols-12 lg:px-10 lg:pt-24">
         <div className="lg:col-span-6">
           {info?.hero_badge && (
-          <span className="rise inline-flex items-center gap-2 rounded-full border border-[#120092]/15 bg-[#120092]/[0.05] px-3 py-1 text-xs font-semibold text-[#120092]">
+          <span data-testid="hero-badge" className="rise inline-flex items-center gap-2 rounded-full border border-[#120092]/15 bg-[#120092]/[0.05] px-3 py-1 text-xs font-semibold text-[#120092]">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {info?.hero_badge}
           </span>
           )}
@@ -140,7 +140,7 @@ function Hero({ info }) {
             {info && <img src={assetUrl(info.hero_image) || "/images/hero.jpg"} alt="Restaurant" data-testid="hero-image" className="h-[420px] w-full object-cover lg:h-[520px]" />}
           </div>
           {info?.show_hero_cards && <>
-          <div className="float absolute -left-4 bottom-10 hidden rounded-2xl border border-border bg-white/90 p-4 backdrop-blur-xl card-shadow sm:block lg:-left-10">
+          <div data-testid="hero-cards" className="float absolute -left-4 bottom-10 hidden rounded-2xl border border-border bg-white/90 p-4 backdrop-blur-xl card-shadow sm:block lg:-left-10">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#120092] text-white"><Check className="h-5 w-5" /></div>
               <div><div className="text-sm font-semibold">Table for 2 · 19:30</div><div className="text-xs text-slate-500">Confirmed in minutes</div></div>

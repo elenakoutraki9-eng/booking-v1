@@ -328,6 +328,8 @@ async def update_settings(body: SettingsIn, _: dict = Depends(require_admin)):
 @api.put("/settings/zones")
 async def update_zones(body: ZonesIn, _: dict = Depends(require_admin)):
     names = [z.name.strip() for z in body.zones]
+    if any(not n for n in names):
+        raise HTTPException(400, "Seating area names cannot be empty")
     if len(set(n.lower() for n in names)) != len(names):
         raise HTTPException(400, "Seating area names must be unique")
     current = (await get_settings_doc())["zones"]
@@ -336,10 +338,12 @@ async def update_zones(body: ZonesIn, _: dict = Depends(require_admin)):
         n = await db.tables.count_documents({"zone": gone})
         if n:
             raise HTTPException(400, f"Move the {n} table(s) out of '{gone}' before removing it")
-    for z in body.zones:
-        if z.original and z.original != z.name.strip():
-            await db.tables.update_many({"zone": z.original}, {"$set": {"zone": z.name.strip()}})
-            await db.reservations.update_many({"zone": z.original}, {"$set": {"zone": z.name.strip()}})
+    renames = [(z.original, z.name.strip()) for z in body.zones if z.original and z.original != z.name.strip()]
+    for coll in (db.tables, db.reservations):
+        for old, _new in renames:
+            await coll.update_many({"zone": old}, {"$set": {"zone": f"__rename__{old}"}})
+        for old, new in renames:
+            await coll.update_many({"zone": f"__rename__{old}"}, {"$set": {"zone": new}})
     await db.settings.update_one({"key": "main"}, {"$set": {"zones": names}})
     return await get_settings_doc()
 
@@ -520,8 +524,14 @@ async def list_tables(_: dict = Depends(get_current_user)):
     return tables
 
 
+async def check_zone(zone):
+    if zone is not None and zone not in (await get_settings_doc())["zones"]:
+        raise HTTPException(400, "Unknown seating area")
+
+
 @api.post("/tables")
 async def create_table(body: TableIn, _: dict = Depends(get_current_user)):
+    await check_zone(body.zone)
     doc = body.model_dump()
     doc.update({"id": new_id(), "status": "free", "current_reservation_id": None, "seated_at": None})
     await db.tables.insert_one(dict(doc))
@@ -534,6 +544,8 @@ async def update_table(tid: str, body: TableUpdate, _: dict = Depends(get_curren
     if not t:
         raise HTTPException(404, "Table not found")
     upd = {k: v for k, v in body.model_dump().items() if v is not None}
+    if "zone" in upd and upd["zone"] != t.get("zone"):
+        await check_zone(upd["zone"])
     new_status = upd.get("status")
     if new_status and new_status != "seated":
         was_seated = t.get("status") == "seated"

@@ -77,6 +77,7 @@ export function ZonesEditor({ s, onSaved }) {
       toast.success("Seating areas saved");
     } catch (e) {
       toast.error(formatApiError(e));
+      setZones(s.zones.map((z) => ({ name: z, original: z })));
     }
   };
   return (

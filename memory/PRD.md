@@ -28,6 +28,8 @@ User choices: staff back office + public booking page; email/password login; boo
 - 2026-11-02: MVP built (all of the above). Iteration 1 tests: 34/36 backend pass, all frontend flows pass.
 - 2026-11-02: Startup-style light redesign (white + #120092), calendar date picker on public page, mobile bottom sheet for the floor plan, bottom-right toasts, € with 2 decimals. Fixed: lockout behind proxy, settings time validation, seated-table edge cases (status change, move, delete), seat window, zone/past-time validation, atomic table move, last_visit date. Iteration 2 tests: 49/50 backend pass (remaining one fixed afterwards), all frontend flows pass.
 
+- 2026-11-02: Owner-only customization (Settings tabs: General, Booking page, Today layout, Seating areas, Team & password). Today page: show/hide, reorder and retitle widgets. Seating areas: add, rename (safe swaps), remove (blocked while tables are in it). Booking page: badge, button label, texts, headings, section toggles, photo uploads (stored in MongoDB `assets`). Iteration 3 tests: 71/72 backend pass; both bugs found were fixed afterwards (rename swap, blank names) and checked with curl.
+
 ## Backlog
 - P1: Email/SMS booking confirmations to guests
 - P1: Replace native date/time inputs in staff screens with the shadcn calendar and 24h time picker
