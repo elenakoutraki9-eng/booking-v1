@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 5: Menu feature. Backend: 11/12 pytest pass (GET/PUT /api/menu auth: anon 401, staff GET 200, staff PUT 403; persistence, id generation/preservation on re-save, public filtering of hidden items and empty categories, price optional, negative price/blank names/unknown tag -> 422). One minor failure: whitespace-only names accepted. Frontend: owner Menu editor fully works (empty state, add category+note, items with price/description/tags, hide toggle, item & category up/down, item delete, category delete with confirm dialog, blank-name error toast blocks save, save toast, persists after reload). Public page: ?view=menu opens Menu tab with active pill, jump chips for 2 categories, dotted leaders, EUR prices with 2 decimals (€7.50, €12.00), descriptions & tag badges, hidden item not shown, item without price shows no price; menu-book-btn and tabs switch views/URL; booking from Book tab produced booking-reference; menu-empty shows when menu is empty; 390px mobile shows tabs first with no horizontal overflow. Settings General/Booking page/Team tabs regression OK. Menu reset to empty and TEST_ data cleaned.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/menu", "issue": "Whitespace-only category/item names (e.g. '   ') pass min_length=1 and are then stripped and stored as empty strings (200). UI guards this with trim(), but API should reject: strip before validation (e.g. str_strip_whitespace / field_validator) -> 422."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Public page mobile (390px)", "issues": ["Restaurant name/brand block is rendered below the booking/menu card, so guests on mobile see no restaurant name at the top (pre-existing layout choice, consider a compact brand header above the tabs)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration5_menu.py", "/app/backend/tests/cleanup_menu_and_test_data.py", "/app/test_reports/pytest/pytest_iter5.xml"],
+  "action_items": ["Reject whitespace-only menu category/item names in backend validation (minor)"],
+  "critical_code_review_comments": [
+    "MenuEditor useEffect api.get('/menu') has no .catch -> on failure the editor renders null forever with no error state/toast",
+    "MenuEditor has no unsaved-changes warning; navigating to another Settings tab silently drops edits",
+    "PUT /api/menu trusts client-supplied ids; duplicate ids from a client would produce duplicate React keys/anchors (low risk)"
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration5_menu.py", "/app/backend/tests/cleanup_menu_and_test_data.py"],
+  "success_rate": {"backend": "92% (11/12, only minor whitespace validation)", "frontend": "100%"},
+  "seed_data_creation": "Temporary TEST_ menu, one TEST_ staff, one TEST_MenuBooker reservation/guest - all removed; menu reset to {categories: []}",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Menu stored in db.menu key=main. Run backend/tests/cleanup_menu_and_test_data.py after testing to reset menu and remove TEST_ reservations/guests/staff. Settings tab ids: general, booking, menu, team (Today layout/Seating areas use other ids). Window.confirm on category delete must be accepted via async dialog handler."
+}

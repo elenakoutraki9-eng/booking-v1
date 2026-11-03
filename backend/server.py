@@ -364,6 +364,8 @@ async def staff_menu(_: dict = Depends(get_current_user)):
 async def update_menu(body: MenuIn, _: dict = Depends(require_admin)):
     cats = []
     for c in body.categories:
+        if not c.name.strip() or any(not i.name.strip() for i in c.items):
+            raise HTTPException(422, "Every category and item needs a name")
         items = [{**i.model_dump(), "id": i.id or new_id(), "name": i.name.strip()} for i in c.items]
         cats.append({**c.model_dump(), "id": c.id or new_id(), "name": c.name.strip(), "items": items})
     await db.menu.update_one({"key": "main"}, {"$set": {"categories": cats, "updated_at": now_iso()}}, upsert=True)

@@ -179,12 +179,17 @@ export default function PublicBooking() {
             {[["book", "Book a table", CalendarDays], ["menu", "Menu", UtensilsCrossed]].map(([id, label, Icon]) => (
               <button key={id} onClick={() => pick(id)} data-testid={`public-tab-${id}`}
                 className={`relative flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold transition-colors duration-300 ${view === id ? "text-white" : "text-slate-500 hover:text-slate-900"}`}>
-                {view === id && <motion.span layoutId="public-tab-pill" transition={{ type: "spring", stiffness: 400, damping: 32 }} className="absolute inset-0 rounded-full bg-[#120092] brand-shadow" />}
-                <Icon className="relative h-4 w-4" /><span className="relative">{label}</span>
+                {view === id && (
+                  <motion.span layoutId="public-tab-pill" transition={{ type: "spring", stiffness: 520, damping: 26, mass: 0.8 }} className="absolute inset-0 rounded-full bg-[#120092] brand-shadow">
+                    <motion.span key={view} initial={{ scaleX: 1.12, scaleY: 0.82 }} animate={{ scaleX: 1, scaleY: 1 }} transition={{ type: "spring", stiffness: 380, damping: 12 }} className="absolute inset-0 rounded-full bg-[#120092]" />
+                  </motion.span>
+                )}
+                <motion.span className="relative" animate={view === id ? { rotate: [0, -14, 10, 0], scale: [1, 1.25, 1] } : { rotate: 0, scale: 1 }} transition={{ duration: 0.5, ease: "easeOut" }}><Icon className="h-4 w-4" /></motion.span>
+                <motion.span className="relative" whileTap={{ scale: 0.94 }}>{label}</motion.span>
               </button>
             ))}
           </div>
-          <motion.div key={view} initial={{ opacity: 0, x: view === "menu" ? 24 : -24 }} animate={{ opacity: 1, x: 0 }} transition={{ type: "spring", stiffness: 280, damping: 30 }} className={`${card} p-6 sm:p-10`}>
+          <motion.div key={view} initial={{ opacity: 0, x: view === "menu" ? 70 : -70, scale: 0.97, filter: "blur(6px)" }} animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }} transition={{ type: "spring", stiffness: 230, damping: 26 }} className={`${card} p-6 sm:p-10`}>
             {view === "menu" ? (
               <>
                 <h2 className="mb-6 font-display text-3xl font-bold sm:text-4xl" data-testid="menu-title">Menu</h2>
