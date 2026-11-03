@@ -9,6 +9,7 @@ import { useSite } from "../context/SiteContext";
 import { btnPrimary, btnGhost, card } from "../lib/status";
 import { PageHeader } from "../components/StaffLayout";
 import { TodayLayoutEditor, ZonesEditor, BookingPageEditor } from "../components/SettingsEditors";
+import { MenuEditor } from "../components/MenuEditor";
 import { Input } from "../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
@@ -133,6 +134,7 @@ function ChangePassword() {
 const TABS = [
   { id: "general", label: "General" },
   { id: "booking", label: "Booking page", admin: true },
+  { id: "menu", label: "Menu", admin: true },
   { id: "today", label: "Today layout", admin: true },
   { id: "areas", label: "Seating areas", admin: true },
   { id: "team", label: "Team & password" },
@@ -170,6 +172,7 @@ export default function Settings() {
           {tab === "booking" && <BookingPageEditor s={s} onSaved={setS} />}
           {tab === "today" && <TodayLayoutEditor s={s} onSaved={setS} />}
           {tab === "areas" && <ZonesEditor s={s} onSaved={setS} />}
+          {tab === "menu" && <MenuEditor />}
           {tab === "team" && (
             <div className="grid gap-6 lg:grid-cols-2">
               {isAdmin && <StaffAccounts />}

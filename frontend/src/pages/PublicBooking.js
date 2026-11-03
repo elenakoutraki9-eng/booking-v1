@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { MapPin, Phone, Mail, Clock, Check, ArrowRight, CalendarDays, Minus, Plus } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Check, ArrowRight, CalendarDays, Minus, Plus, UtensilsCrossed } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
+import { MenuView } from "../components/MenuView";
 import { toast } from "sonner";
 import { api, formatApiError, toDateStr, prettyDate } from "../lib/api";
 import { useSite } from "../context/SiteContext";
@@ -164,21 +166,43 @@ function RestaurantInfo({ info }) {
 export default function PublicBooking() {
   const { info } = useSite();
   const [done, setDone] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const view = params.get("view") === "menu" ? "menu" : "book";
+  const pick = (v) => setParams(v === "menu" ? { view: "menu" } : {}, { replace: true });
 
   return (
     <div className="hero-glow min-h-screen bg-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-10 lg:grid-cols-12 lg:gap-14 lg:px-10 lg:py-16">
         <RestaurantInfo info={info} />
         <main className="rise d1 order-1 lg:order-2 lg:col-span-8" id="book">
-          <div className={`${card} p-6 sm:p-10`}>
-            {!done && (
-              <div className="mb-8">
-                <h2 className="font-display text-3xl font-bold sm:text-4xl" data-testid="booking-title">{info?.booking_title || "Book a table"}</h2>
-                {info?.booking_text && <p className="mt-2 text-sm text-slate-500">{info.booking_text}</p>}
-              </div>
-            )}
-            {done ? <Confirmation data={done} onReset={() => setDone(null)} /> : <BookingForm info={info} onDone={setDone} />}
+          <div className="mb-4 flex rounded-full border border-border bg-white p-1 card-shadow" data-testid="public-view-tabs">
+            {[["book", "Book a table", CalendarDays], ["menu", "Menu", UtensilsCrossed]].map(([id, label, Icon]) => (
+              <button key={id} onClick={() => pick(id)} data-testid={`public-tab-${id}`}
+                className={`relative flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-sm font-semibold transition-colors duration-300 ${view === id ? "text-white" : "text-slate-500 hover:text-slate-900"}`}>
+                {view === id && <motion.span layoutId="public-tab-pill" transition={{ type: "spring", stiffness: 400, damping: 32 }} className="absolute inset-0 rounded-full bg-[#120092] brand-shadow" />}
+                <Icon className="relative h-4 w-4" /><span className="relative">{label}</span>
+              </button>
+            ))}
           </div>
+          <motion.div key={view} initial={{ opacity: 0, x: view === "menu" ? 24 : -24 }} animate={{ opacity: 1, x: 0 }} transition={{ type: "spring", stiffness: 280, damping: 30 }} className={`${card} p-6 sm:p-10`}>
+            {view === "menu" ? (
+              <>
+                <h2 className="mb-6 font-display text-3xl font-bold sm:text-4xl" data-testid="menu-title">Menu</h2>
+                <MenuView />
+                <button onClick={() => pick("book")} className={`${btnPrimary} mt-8 w-full py-3.5`} data-testid="menu-book-btn">Book a table <ArrowRight className="h-4 w-4" /></button>
+              </>
+            ) : (
+              <>
+                {!done && (
+                  <div className="mb-8">
+                    <h2 className="font-display text-3xl font-bold sm:text-4xl" data-testid="booking-title">{info?.booking_title || "Book a table"}</h2>
+                    {info?.booking_text && <p className="mt-2 text-sm text-slate-500">{info.booking_text}</p>}
+                  </div>
+                )}
+                {done ? <Confirmation data={done} onReset={() => setDone(null)} /> : <BookingForm info={info} onDone={setDone} />}
+              </>
+            )}
+          </motion.div>
         </main>
       </div>
     </div>

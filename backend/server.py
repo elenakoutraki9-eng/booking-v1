@@ -327,6 +327,59 @@ async def update_settings(body: SettingsIn, _: dict = Depends(require_admin)):
     return await get_settings_doc()
 
 
+MENU_TAGS = Literal["vegetarian", "vegan", "gluten_free", "spicy", "signature"]
+
+
+class MenuItem(BaseModel):
+    id: Optional[str] = None
+    name: str = Field(min_length=1, max_length=120)
+    description: str = Field("", max_length=400)
+    price: Optional[float] = Field(None, ge=0, le=100000)
+    tags: List[MENU_TAGS] = []
+    available: bool = True
+
+
+class MenuCategory(BaseModel):
+    id: Optional[str] = None
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field("", max_length=300)
+    items: List[MenuItem] = []
+
+
+class MenuIn(BaseModel):
+    categories: List[MenuCategory] = Field(max_length=50)
+
+
+async def get_menu():
+    doc = await db.menu.find_one({"key": "main"}, {"_id": 0})
+    return (doc or {}).get("categories", [])
+
+
+@api.get("/menu")
+async def staff_menu(_: dict = Depends(get_current_user)):
+    return {"categories": await get_menu()}
+
+
+@api.put("/menu")
+async def update_menu(body: MenuIn, _: dict = Depends(require_admin)):
+    cats = []
+    for c in body.categories:
+        items = [{**i.model_dump(), "id": i.id or new_id(), "name": i.name.strip()} for i in c.items]
+        cats.append({**c.model_dump(), "id": c.id or new_id(), "name": c.name.strip(), "items": items})
+    await db.menu.update_one({"key": "main"}, {"$set": {"categories": cats, "updated_at": now_iso()}}, upsert=True)
+    return {"categories": cats}
+
+
+@api.get("/public/menu")
+async def public_menu():
+    cats = []
+    for c in await get_menu():
+        items = [i for i in c["items"] if i.get("available", True)]
+        if items:
+            cats.append({**c, "items": items})
+    return {"categories": cats}
+
+
 @api.put("/settings/zones")
 async def update_zones(body: ZonesIn, _: dict = Depends(require_admin)):
     names = [z.name.strip() for z in body.zones]
