@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MapPin, Phone, Mail, Clock, Check, ArrowRight, CalendarDays, Minus, Plus, UtensilsCrossed } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Check, ArrowRight, ArrowLeft, CalendarDays, Minus, Plus, UtensilsCrossed } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MenuView } from "../components/MenuView";
@@ -32,11 +32,15 @@ function DatePick({ value, onChange }) {
   );
 }
 
+const STEPS = ["Date & guests", "Time", "Your details"];
+
 function BookingForm({ info, onDone }) {
   const [f, setF] = useState({ date: toDateStr(new Date()), time: "", party_size: 2, zone: "", name: "", email: "", phone: "", notes: "" });
   const [busy, setBusy] = useState(false);
   const [avail, setAvail] = useState(null);
   const [reload, setReload] = useState(0);
+  const [step, setStep] = useState(0);
+  const [dir, setDir] = useState(1);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const max = info?.max_party_online || 8;
   const slots = (avail || []).filter((s) => s.available).map((s) => s.time);
@@ -63,14 +67,38 @@ function BookingForm({ info, onDone }) {
       onDone(data);
     } catch (err) {
       toast.error(formatApiError(err));
-      if (err?.response?.status === 409) setReload((n) => n + 1);
+      if (err?.response?.status === 409) { setReload((n) => n + 1); go(1); }
     } finally {
       setBusy(false);
     }
   };
 
+  const stepOk = [true, !!f.time, true];
+  const go = (n) => { setDir(n > step ? 1 : -1); setStep(n); };
+  const onFormSubmit = (e) => {
+    if (step < 2) {
+      e.preventDefault();
+      if (step === 1 && !f.time) return toast.error("Please pick a time");
+      return go(step + 1);
+    }
+    submit(e);
+  };
+  const guestsLabel = `${f.party_size} ${f.party_size === 1 ? "guest" : "guests"}`;
+
   return (
-    <form onSubmit={submit} className="space-y-7" data-testid="booking-form">
+    <form onSubmit={onFormSubmit} data-testid="booking-form">
+      <div className="mb-6 grid grid-cols-3 gap-2" data-testid="booking-steps">
+        {STEPS.map((label, i) => (
+          <button key={label} type="button" disabled={i > step && !stepOk.slice(0, i).every(Boolean)} onClick={() => (i < step || stepOk.slice(0, i).every(Boolean)) && go(i)} data-testid={`booking-step-${i}`} className="text-left disabled:cursor-not-allowed">
+            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <motion.div className="h-full rounded-full bg-[#120092]" initial={false} animate={{ width: i <= step ? "100%" : "0%" }} transition={{ type: "spring", stiffness: 200, damping: 28 }} />
+            </div>
+            <div className={`mt-2 text-xs font-semibold transition-colors ${i === step ? "text-[#120092]" : i < step ? "text-slate-700" : "text-slate-400"}`}>{i + 1}. {label}</div>
+          </button>
+        ))}
+      </div>
+      <motion.div key={step} initial={{ x: dir * 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="space-y-7" data-testid={`booking-slide-${step}`}>
+      {step === 0 && (<>
       <div className="grid grid-cols-2 gap-4">
         <div><Label>Date</Label><DatePick value={f.date} onChange={(date) => setF({ ...f, date, time: "" })} /></div>
         <div>
@@ -83,7 +111,18 @@ function BookingForm({ info, onDone }) {
         </div>
       </div>
       <div>
-        <Label>Time <span className="ml-1 text-xs font-medium text-slate-400">available for {f.party_size} {f.party_size === 1 ? "guest" : "guests"}</span></Label>
+        <Label>Seating preference</Label>
+        <div className="flex flex-wrap gap-2">
+          {["", ...(info?.zones || [])].map((z) => (
+            <button key={z || "any"} type="button" data-testid={`booking-zone-${(z || "any").replace(/\s+/g, "-").toLowerCase()}`} onClick={() => setF({ ...f, zone: z })} className={chip(f.zone === z)}>{z || "No preference"}</button>
+          ))}
+        </div>
+      </div>
+      {info && f.party_size >= max && <p className="text-xs text-slate-500">Larger party? Call us on {info.phone}.</p>}
+      </>)}
+      {step === 1 && (
+      <div>
+        <Label>Time <span className="ml-1 text-xs font-medium text-slate-400">{prettyDate(f.date)} · {guestsLabel}{f.zone ? ` · ${f.zone}` : ""}</span></Label>
         {avail === null ? (
           <div className="flex flex-wrap gap-2" data-testid="booking-slots-loading">
             {Array.from({ length: 8 }, (_, i) => <span key={i} className="h-8 w-[60px] animate-pulse rounded-full bg-slate-100" />)}
@@ -95,18 +134,16 @@ function BookingForm({ info, onDone }) {
         ) : (
           <div className="flex flex-wrap gap-2" data-testid="booking-slots">
             {slots.map((s) => (
-              <button key={s} type="button" data-testid={`booking-slot-${s.replace(":", "")}`} onClick={() => setF({ ...f, time: s })} className={chip(f.time === s)}>{s}</button>
+              <button key={s} type="button" data-testid={`booking-slot-${s.replace(":", "")}`} onClick={() => { setF({ ...f, time: s }); setTimeout(() => go(2), 220); }} className={chip(f.time === s)}>{s}</button>
             ))}
           </div>
         )}
       </div>
-      <div>
-        <Label>Seating preference</Label>
-        <div className="flex flex-wrap gap-2">
-          {["", ...(info?.zones || [])].map((z) => (
-            <button key={z || "any"} type="button" data-testid={`booking-zone-${(z || "any").replace(/\s+/g, "-").toLowerCase()}`} onClick={() => setF({ ...f, zone: z })} className={chip(f.zone === z)}>{z || "No preference"}</button>
-          ))}
-        </div>
+      )}
+      {step === 2 && (<>
+      <div className="flex items-center justify-between rounded-xl bg-[#120092]/[0.05] px-4 py-3 text-sm" data-testid="booking-summary">
+        <span className="font-semibold text-[#120092]">{prettyDate(f.date)} · {f.time} · {guestsLabel}</span>
+        <button type="button" onClick={() => go(0)} className="text-xs font-semibold text-slate-500 hover:text-[#120092]" data-testid="booking-summary-edit">Change</button>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2"><Label>Full name</Label><Input value={f.name} onChange={set("name")} required data-testid="booking-name-input" className="h-12 rounded-xl" /></div>
@@ -114,10 +151,20 @@ function BookingForm({ info, onDone }) {
         <div><Label>Phone</Label><Input type="tel" value={f.phone} onChange={set("phone")} required minLength={5} data-testid="booking-phone-input" className="h-12 rounded-xl" /></div>
         <div className="sm:col-span-2"><Label>Allergies, occasion or requests</Label><Textarea value={f.notes} onChange={set("notes")} rows={3} data-testid="booking-notes-input" className="rounded-xl" placeholder="e.g. nut allergy, anniversary, high chair" /></div>
       </div>
-      <button type="submit" disabled={busy} data-testid="booking-submit-btn" className={`${btnPrimary} brand-shadow group w-full py-4 text-base`}>
-        {busy ? "Sending…" : "Request reservation"}<ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-      </button>
-      {info && f.party_size >= max && <p className="text-xs text-slate-500">Larger party? Call us on {info.phone}.</p>}
+      </>)}
+      </motion.div>
+      <div className="mt-8 flex gap-3">
+        {step > 0 && <button type="button" onClick={() => go(step - 1)} data-testid="booking-back-btn" className={`${btnGhost} px-6 py-4`}><ArrowLeft className="h-4 w-4" /> Back</button>}
+        {step < 2 ? (
+          <button type="submit" disabled={step === 1 && !f.time} data-testid="booking-next-btn" className={`${btnPrimary} brand-shadow group flex-1 py-4 text-base`}>
+            {step === 0 ? "Choose a time" : "Your details"}<ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+          </button>
+        ) : (
+          <button type="submit" disabled={busy} data-testid="booking-submit-btn" className={`${btnPrimary} brand-shadow group flex-1 py-4 text-base`}>
+            {busy ? "Sending…" : "Request reservation"}<ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+          </button>
+        )}
+      </div>
     </form>
   );
 }
@@ -173,9 +220,9 @@ export default function PublicBooking() {
 
   return (
     <div className="hero-glow min-h-screen bg-white">
-      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-10 lg:grid-cols-12 lg:gap-14 lg:px-10 lg:py-16">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-10 px-6 py-10 lg:grid-cols-12 lg:gap-14 lg:px-10 lg:py-16">
         <RestaurantInfo info={info} />
-        <main className="rise d1 order-1 lg:order-2 lg:col-span-8" id="book">
+        <main className="rise d1 order-1 min-w-0 lg:order-2 lg:col-span-8" id="book">
           <div className="mb-4 flex rounded-full border border-border bg-white p-1 card-shadow" data-testid="public-view-tabs">
             {[["book", "Book a table", CalendarDays], ["menu", "Menu", UtensilsCrossed]].map(([id, label, Icon]) => (
               <button key={id} onClick={() => pick(id)} data-testid={`public-tab-${id}`}
@@ -190,7 +237,7 @@ export default function PublicBooking() {
               </button>
             ))}
           </div>
-          <PushSlider index={view === "menu" ? 1 : 0}>
+          <PushSlider index={view === "menu" ? 1 : 0} onSwipe={(i) => pick(i === 1 ? "menu" : "book")}>
             {[
               <div key="book" className={`${card} p-6 sm:p-10`} data-testid="pane-book">
                 {!done && (
