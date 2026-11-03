@@ -11,24 +11,27 @@ import { btnPrimary, btnGhost, card } from "../lib/status";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Calendar } from "../components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 
 const Label = ({ children }) => <div className="mb-2 text-sm font-semibold text-slate-800">{children}</div>;
 const chip = (on) => `rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-200 ${on ? "border-[#120092] bg-[#120092] text-white" : "border-border bg-white text-slate-600 hover:border-[#120092]/40 hover:text-[#120092]"}`;
 
-function DatePick({ value, onChange }) {
-  const [open, setOpen] = useState(false);
+function DateTrigger({ value, open, onToggle }) {
+  return (
+    <button type="button" onClick={onToggle} aria-expanded={open} data-testid="booking-date-input" className={`flex h-12 w-full items-center gap-3 rounded-xl border bg-white px-4 text-left text-sm font-medium transition-colors hover:border-[#120092]/40 ${open ? "border-[#120092]" : "border-input"}`}>
+      <CalendarDays className="h-4 w-4 text-[#120092]" />{prettyDate(value)}
+    </button>
+  );
+}
+
+function InlineCalendar({ value, open, onPick }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger data-testid="booking-date-input" className="flex h-12 w-full items-center gap-3 rounded-xl border border-input bg-white px-4 text-left text-sm font-medium hover:border-[#120092]/40">
-        <CalendarDays className="h-4 w-4 text-[#120092]" />{prettyDate(value)}
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="single" selected={new Date(`${value}T12:00:00`)} disabled={{ before: today }}
-          onSelect={(d) => { if (d) { onChange(toDateStr(d)); setOpen(false); } }} initialFocus />
-      </PopoverContent>
-    </Popover>
+    <motion.div initial={false} animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }} transition={{ type: "spring", stiffness: 300, damping: 32 }} className="overflow-hidden" style={{ marginTop: open ? undefined : 0 }} aria-hidden={!open} data-testid="booking-calendar">
+      <div className="flex justify-center rounded-2xl border border-border bg-white">
+        <Calendar mode="single" fixedWeeks selected={new Date(`${value}T12:00:00`)} defaultMonth={new Date(`${value}T12:00:00`)} disabled={{ before: today }}
+          onSelect={(d) => d && onPick(toDateStr(d))} />
+      </div>
+    </motion.div>
   );
 }
 
@@ -41,6 +44,7 @@ function BookingForm({ info, onDone }) {
   const [reload, setReload] = useState(0);
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
+  const [calOpen, setCalOpen] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const max = info?.max_party_online || 8;
   const slots = (avail || []).filter((s) => s.available).map((s) => s.time);
@@ -89,18 +93,17 @@ function BookingForm({ info, onDone }) {
     <form onSubmit={onFormSubmit} data-testid="booking-form">
       <div className="mb-6 grid grid-cols-3 gap-2" data-testid="booking-steps">
         {STEPS.map((label, i) => (
-          <button key={label} type="button" disabled={i > step && !stepOk.slice(0, i).every(Boolean)} onClick={() => (i < step || stepOk.slice(0, i).every(Boolean)) && go(i)} data-testid={`booking-step-${i}`} className="text-left disabled:cursor-not-allowed">
+          <button key={label} type="button" aria-label={`Step ${i + 1}: ${label}`} title={label} disabled={i > step && !stepOk.slice(0, i).every(Boolean)} onClick={() => (i < step || stepOk.slice(0, i).every(Boolean)) && go(i)} data-testid={`booking-step-${i}`} className="py-1 text-left disabled:cursor-not-allowed">
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
               <motion.div className="h-full rounded-full bg-[#120092]" initial={false} animate={{ width: i <= step ? "100%" : "0%" }} transition={{ type: "spring", stiffness: 200, damping: 28 }} />
             </div>
-            <div className={`mt-2 text-xs font-semibold transition-colors ${i === step ? "text-[#120092]" : i < step ? "text-slate-700" : "text-slate-400"}`}>{i + 1}. {label}</div>
           </button>
         ))}
       </div>
       <motion.div key={step} initial={{ x: dir * 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="space-y-7" data-testid={`booking-slide-${step}`}>
       {step === 0 && (<>
       <div className="grid grid-cols-2 gap-4">
-        <div><Label>Date</Label><DatePick value={f.date} onChange={(date) => setF({ ...f, date, time: "" })} /></div>
+        <div><Label>Date</Label><DateTrigger value={f.date} open={calOpen} onToggle={() => setCalOpen(!calOpen)} /></div>
         <div>
           <Label>Guests</Label>
           <div className="flex h-12 items-center rounded-xl border border-input bg-white">
@@ -110,6 +113,7 @@ function BookingForm({ info, onDone }) {
           </div>
         </div>
       </div>
+      <InlineCalendar value={f.date} open={calOpen} onPick={(date) => { setF({ ...f, date, time: "" }); setCalOpen(false); }} />
       <div>
         <Label>Seating preference</Label>
         <div className="flex flex-wrap gap-2">
