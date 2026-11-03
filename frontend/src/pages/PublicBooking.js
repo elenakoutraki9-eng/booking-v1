@@ -3,6 +3,7 @@ import { MapPin, Phone, Mail, Clock, Check, ArrowRight, CalendarDays, Minus, Plu
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MenuView } from "../components/MenuView";
+import { PushSlider } from "../components/PushSlider";
 import { toast } from "sonner";
 import { api, formatApiError, toDateStr, prettyDate } from "../lib/api";
 import { useSite } from "../context/SiteContext";
@@ -189,15 +190,9 @@ export default function PublicBooking() {
               </button>
             ))}
           </div>
-          <motion.div key={view} initial={{ opacity: 0, x: view === "menu" ? 70 : -70, scale: 0.97, filter: "blur(6px)" }} animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }} transition={{ type: "spring", stiffness: 230, damping: 26 }} className={`${card} p-6 sm:p-10`}>
-            {view === "menu" ? (
-              <>
-                <h2 className="mb-6 font-display text-3xl font-bold sm:text-4xl" data-testid="menu-title">Menu</h2>
-                <MenuView />
-                <button onClick={() => pick("book")} className={`${btnPrimary} mt-8 w-full py-3.5`} data-testid="menu-book-btn">Book a table <ArrowRight className="h-4 w-4" /></button>
-              </>
-            ) : (
-              <>
+          <PushSlider index={view === "menu" ? 1 : 0}>
+            {[
+              <div key="book" className={`${card} p-6 sm:p-10`} data-testid="pane-book">
                 {!done && (
                   <div className="mb-8">
                     <h2 className="font-display text-3xl font-bold sm:text-4xl" data-testid="booking-title">{info?.booking_title || "Book a table"}</h2>
@@ -205,9 +200,14 @@ export default function PublicBooking() {
                   </div>
                 )}
                 {done ? <Confirmation data={done} onReset={() => setDone(null)} /> : <BookingForm info={info} onDone={setDone} />}
-              </>
-            )}
-          </motion.div>
+              </div>,
+              <div key="menu" className={`${card} p-6 sm:p-10`} data-testid="pane-menu">
+                <h2 className="mb-6 font-display text-3xl font-bold sm:text-4xl" data-testid="menu-title">Menu</h2>
+                <MenuView />
+                <button onClick={() => pick("book")} className={`${btnPrimary} mt-8 w-full py-3.5`} data-testid="menu-book-btn">Book a table <ArrowRight className="h-4 w-4" /></button>
+              </div>,
+            ]}
+          </PushSlider>
         </main>
       </div>
     </div>
