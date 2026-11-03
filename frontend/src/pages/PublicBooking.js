@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { MapPin, Phone, Mail, Clock, Check, ArrowRight, CalendarDays, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -32,11 +32,24 @@ function DatePick({ value, onChange }) {
 function BookingForm({ info, onDone }) {
   const [f, setF] = useState({ date: toDateStr(new Date()), time: "", party_size: 2, zone: "", name: "", email: "", phone: "", notes: "" });
   const [busy, setBusy] = useState(false);
+  const [avail, setAvail] = useState(null);
+  const [reload, setReload] = useState(0);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const today = toDateStr(new Date());
-  const nowHM = new Date().toTimeString().slice(0, 5);
-  const slots = (info?.slots || []).filter((s) => f.date !== today || s > nowHM);
   const max = info?.max_party_online || 8;
+  const slots = (avail || []).filter((s) => s.available).map((s) => s.time);
+
+  useEffect(() => {
+    let alive = true;
+    setAvail(null);
+    api.get("/public/availability", { params: { date: f.date, party_size: f.party_size, zone: f.zone || undefined } })
+      .then(({ data }) => {
+        if (!alive) return;
+        setAvail(data.slots);
+        setF((cur) => (cur.time && !data.slots.some((s) => s.time === cur.time && s.available) ? { ...cur, time: "" } : cur));
+      })
+      .catch(() => alive && setAvail([]));
+    return () => { alive = false; };
+  }, [f.date, f.party_size, f.zone, reload]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -47,6 +60,7 @@ function BookingForm({ info, onDone }) {
       onDone(data);
     } catch (err) {
       toast.error(formatApiError(err));
+      if (err?.response?.status === 409) setReload((n) => n + 1);
     } finally {
       setBusy(false);
     }
@@ -66,11 +80,17 @@ function BookingForm({ info, onDone }) {
         </div>
       </div>
       <div>
-        <Label>Time</Label>
-        {slots.length === 0 ? (
-          <p className="text-sm text-slate-500" data-testid="booking-no-slots">No more times available today — please choose another date.</p>
+        <Label>Time <span className="ml-1 text-xs font-medium text-slate-400">available for {f.party_size} {f.party_size === 1 ? "guest" : "guests"}</span></Label>
+        {avail === null ? (
+          <div className="flex flex-wrap gap-2" data-testid="booking-slots-loading">
+            {Array.from({ length: 8 }, (_, i) => <span key={i} className="h-8 w-[60px] animate-pulse rounded-full bg-slate-100" />)}
+          </div>
+        ) : slots.length === 0 ? (
+          <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500" data-testid="booking-no-slots">
+            {avail.length === 0 ? "No more times available on this date. Please choose another date." : `Fully booked for ${f.party_size} ${f.party_size === 1 ? "guest" : "guests"}${f.zone ? ` in ${f.zone}` : ""} on this date. Try another date${f.zone ? ", another area" : ""} or call us.`}
+          </p>
         ) : (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2" data-testid="booking-slots">
             {slots.map((s) => (
               <button key={s} type="button" data-testid={`booking-slot-${s.replace(":", "")}`} onClick={() => setF({ ...f, time: s })} className={chip(f.time === s)}>{s}</button>
             ))}

@@ -647,6 +647,68 @@ async def complete_reservation(rid: str, spend: Optional[float] = None):
                                                            "$set": {"last_visit": min(r["date"], datetime.now().strftime("%Y-%m-%d"))}})
 
 
+VISIT_MINUTES = 90
+ACTIVE_STATUSES = ["pending", "confirmed", "seated"]
+
+
+def to_min(hm):
+    h, m = map(int, hm.split(":"))
+    return h * 60 + m
+
+
+def can_seat(tables, overlapping, party_size, zone):
+    """Bipartite match: every overlapping booking plus the new party gets its own table."""
+    by_id = {t["id"]: t for t in tables}
+    reqs = []
+    for r in overlapping:
+        if r.get("table_id") in by_id:
+            reqs.append([r["table_id"]])
+        else:
+            reqs.append([t["id"] for t in tables if t["capacity"] >= r["party_size"]])
+    reqs.append([t["id"] for t in tables if t["capacity"] >= party_size and (not zone or t.get("zone") == zone)])
+    owner = {}
+
+    def assign(i, seen):
+        for tid in reqs[i]:
+            if tid in seen:
+                continue
+            seen.add(tid)
+            if tid not in owner or assign(owner[tid], seen):
+                owner[tid] = i
+                return True
+        return False
+
+    new_idx = len(reqs) - 1
+    for i in range(new_idx):
+        assign(i, set())
+    return assign(new_idx, set())
+
+
+async def slot_availability(s, date, party_size, zone):
+    tables = await db.tables.find({}, {"_id": 0, "id": 1, "capacity": 1, "zone": 1}).to_list(500)
+    booked = await db.reservations.find({"date": date, "status": {"$in": ACTIVE_STATUSES}},
+                                        {"_id": 0, "time": 1, "duration": 1, "party_size": 1, "table_id": 1}).to_list(2000)
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    out = []
+    for slot in build_slots(s):
+        if date < today or (date == today and slot <= now.strftime("%H:%M")):
+            continue
+        start = to_min(slot)
+        overlap = [r for r in booked if to_min(r["time"]) < start + VISIT_MINUTES and start < to_min(r["time"]) + (r.get("duration") or VISIT_MINUTES)]
+        out.append({"time": slot, "available": can_seat(tables, overlap, party_size, zone)})
+    return out
+
+
+@api.get("/public/availability")
+async def public_availability(date: str, party_size: int, zone: str = ""):
+    validate_date_time(date, "12:00")
+    s = await get_settings_doc()
+    if party_size < 1 or party_size > s["max_party_online"]:
+        raise HTTPException(400, f"Online bookings are for 1 to {s['max_party_online']} guests")
+    return {"date": date, "party_size": party_size, "slots": await slot_availability(s, date, party_size, zone if zone in s["zones"] else "")}
+
+
 @api.post("/public/reservations")
 async def public_reserve(body: PublicReservationIn):
     validate_date_time(body.date, body.time)
@@ -660,6 +722,9 @@ async def public_reserve(body: PublicReservationIn):
         raise HTTPException(400, "Please choose one of the available times")
     if body.zone and body.zone not in s["zones"]:
         raise HTTPException(400, "Unknown seating area")
+    slots = {x["time"]: x["available"] for x in await slot_availability(s, body.date, body.party_size, body.zone or "")}
+    if not slots.get(body.time):
+        raise HTTPException(409, "Sorry, that time is fully booked. Please choose another time.")
     guest = await find_or_create_guest(body.name, body.email, body.phone)
     r = {"id": new_id(), "ref": make_ref(), "guest_id": guest["id"], "guest_name": body.name, "email": body.email.lower(),
          "phone": body.phone, "party_size": body.party_size, "date": body.date, "time": body.time, "zone": body.zone or "",
