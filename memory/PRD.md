@@ -32,6 +32,7 @@ User choices: staff back office + public booking page; email/password login; boo
 - 2026-11-02: Reservations date picker is now a 3D rotating drum (spins on arrows, click, mouse wheel, drag/swipe); the reservation list slides in the matching direction.
 - 2026-11-02: Smooth tab transitions: each staff page fades, rises and un-blurs as it comes in; the sidebar and Settings tab highlights glide between items; Settings tab content slides in. (An exit animation was removed because nested animations left the page blank.)
 - 2026-11-02: Staff pages now change like scrolling: going down the menu, the old page moves up and the new one comes in from below; going up reverses it. Built as a small custom page stack (PageStack.js), because framer-motion's AnimatePresence never removed pages that had left.
+- 2026-11-03: Public home page simplified to just the booking form plus basic restaurant info (name, tagline, description, hours, address, phone, email, small staff-login link). The photo, steps, gallery and "Visit us" sections were removed, and Settings → Booking page now only edits tagline, description, form heading and form text.
 
 ## Backlog
 - P1: Email/SMS booking confirmations to guests

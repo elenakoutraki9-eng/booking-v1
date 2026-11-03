@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { MapPin, Phone, Mail, Clock, Check, ArrowRight, CalendarDays, Minus, Plus, Sparkles, Star } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Check, ArrowRight, CalendarDays, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { api, assetUrl, formatApiError, toDateStr, prettyDate } from "../lib/api";
+import { api, formatApiError, toDateStr, prettyDate } from "../lib/api";
 import { useSite } from "../context/SiteContext";
-import { btnPrimary, btnGhost, card, eyebrow } from "../lib/status";
+import { btnPrimary, btnGhost, card } from "../lib/status";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Calendar } from "../components/ui/calendar";
@@ -116,43 +116,28 @@ function Confirmation({ data, onReset }) {
   );
 }
 
-function Hero({ info }) {
+function RestaurantInfo({ info }) {
+  const facts = [[Clock, info?.hours, "info-hours"], [MapPin, info?.address, "info-address"], [Phone, info?.phone, "info-phone"], [Mail, info?.email, "info-email"]];
   return (
-    <section className="hero-glow relative overflow-hidden">
-      <div className="mx-auto grid max-w-7xl items-center gap-14 px-6 pb-24 pt-16 lg:grid-cols-12 lg:px-10 lg:pt-24">
-        <div className="lg:col-span-6">
-          {info?.hero_badge && (
-          <span data-testid="hero-badge" className="rise inline-flex items-center gap-2 rounded-full border border-[#120092]/15 bg-[#120092]/[0.05] px-3 py-1 text-xs font-semibold text-[#120092]">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {info?.hero_badge}
-          </span>
-          )}
-          <h1 className="rise d1 mt-6 font-display text-5xl font-bold leading-[0.95] sm:text-6xl lg:text-7xl">{info?.name}</h1>
-          <p className="rise d2 mt-3 font-display text-2xl font-medium text-[#120092]">{info?.tagline}</p>
-          <p className="rise d2 mt-6 max-w-lg text-base text-slate-600 md:text-lg">{info?.description}</p>
-          <div className="rise d3 mt-10 flex flex-wrap gap-3">
-            <a href="#book" data-testid="hero-reserve-btn" className={`${btnPrimary} brand-shadow px-7 py-3.5`}>{info?.cta_label} <ArrowRight className="h-4 w-4" /></a>
-            {info?.show_visit && <a href="#visit" data-testid="hero-visit-btn" className={`${btnGhost} px-6 py-3.5`}>Hours & location</a>}
-          </div>
-          <div className="rise d4 mt-12 flex items-center gap-3 text-sm text-slate-500"><Clock className="h-4 w-4 text-[#120092]" />{info?.hours}</div>
-        </div>
-        <div className="relative lg:col-span-6">
-          <div className="rise d2 overflow-hidden rounded-[2rem] border border-border card-shadow">
-            {info && <img src={assetUrl(info.hero_image) || "/images/hero.jpg"} alt="Restaurant" data-testid="hero-image" className="h-[420px] w-full object-cover lg:h-[520px]" />}
-          </div>
-          {info?.show_hero_cards && <>
-          <div data-testid="hero-cards" className="float absolute -left-4 bottom-10 hidden rounded-2xl border border-border bg-white/90 p-4 backdrop-blur-xl card-shadow sm:block lg:-left-10">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#120092] text-white"><Check className="h-5 w-5" /></div>
-              <div><div className="text-sm font-semibold">Table for 2 · 19:30</div><div className="text-xs text-slate-500">Confirmed in minutes</div></div>
-            </div>
-          </div>
-          <div className="absolute -right-3 top-8 hidden rounded-2xl border border-border bg-white/90 px-4 py-3 backdrop-blur-xl card-shadow sm:block">
-            <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-[#120092]" /> Seasonal menu</div>
-          </div>
-          </>}
+    <aside className="rise lg:sticky lg:top-12 lg:col-span-4 lg:self-start" data-testid="restaurant-info">
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#120092] font-display text-xl font-bold text-white brand-shadow">{info?.name?.[0]}</span>
+        <div>
+          <h1 className="font-display text-3xl font-bold leading-none" data-testid="public-brand-name">{info?.name}</h1>
+          {info?.tagline && <p className="mt-1 text-sm font-semibold text-[#120092]">{info.tagline}</p>}
         </div>
       </div>
-    </section>
+      {info?.description && <p className="mt-6 text-slate-600">{info.description}</p>}
+      <ul className="mt-8 space-y-4">
+        {facts.filter(([, v]) => v).map(([Icon, v, id]) => (
+          <li key={id} className="flex items-start gap-3 text-sm" data-testid={id}>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#120092]/[0.07] text-[#120092]"><Icon className="h-4 w-4" /></span>
+            <span className="pt-1.5 text-slate-700">{v}</span>
+          </li>
+        ))}
+      </ul>
+      <Link to="/staff" data-testid="nav-staff-link" className="mt-10 inline-block text-xs font-medium text-slate-400 hover:text-[#120092]">Staff login</Link>
+    </aside>
   );
 }
 
@@ -161,69 +146,21 @@ export default function PublicBooking() {
   const [done, setDone] = useState(null);
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-30 border-b border-border/70 bg-white/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#120092] font-display text-lg font-bold text-white">{info?.name?.[0]}</span>
-            <span className="font-display text-xl font-semibold" data-testid="public-brand-name">{info?.name}</span>
+    <div className="hero-glow min-h-screen bg-white">
+      <div className="mx-auto grid max-w-6xl gap-10 px-6 py-10 lg:grid-cols-12 lg:gap-14 lg:px-10 lg:py-16">
+        <RestaurantInfo info={info} />
+        <main className="rise d1 lg:col-span-8" id="book">
+          <div className={`${card} p-6 sm:p-10`}>
+            {!done && (
+              <div className="mb-8">
+                <h2 className="font-display text-3xl font-bold sm:text-4xl" data-testid="booking-title">{info?.booking_title || "Book a table"}</h2>
+                {info?.booking_text && <p className="mt-2 text-sm text-slate-500">{info.booking_text}</p>}
+              </div>
+            )}
+            {done ? <Confirmation data={done} onReset={() => setDone(null)} /> : <BookingForm info={info} onDone={setDone} />}
           </div>
-          <div className="flex items-center gap-2">
-            <Link to="/staff" data-testid="nav-staff-link" className="hidden px-3 text-sm font-medium text-slate-500 hover:text-[#120092] sm:block">Staff login</Link>
-            <a href="#book" data-testid="nav-book-link" className={btnPrimary}>Book a table</a>
-          </div>
-        </div>
-      </header>
-
-      <Hero info={info} />
-
-      <section id="book" className="dot-grid border-y border-border">
-        <div className="mx-auto grid max-w-7xl gap-14 px-6 py-24 lg:grid-cols-12 lg:px-10">
-          <div className="lg:col-span-5">
-            <div className={eyebrow}>Reservations</div>
-            <h2 className="mt-3 font-display text-4xl font-bold leading-tight sm:text-5xl" data-testid="booking-title">{info?.booking_title}</h2>
-            <p className="mt-5 max-w-md text-slate-600">{info?.booking_text}</p>
-            {info?.show_steps && <ol className="mt-10 space-y-4" data-testid="booking-steps">
-              {["Choose your date & time", "Tell us who's coming", "Get your booking reference"].map((s, i) => (
-                <li key={s} className="flex items-center gap-4">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#120092]/20 bg-white font-display font-semibold text-[#120092]">{i + 1}</span>
-                  <span className="font-medium text-slate-800">{s}</span>
-                </li>
-              ))}
-            </ol>}
-            {info?.show_gallery && <div className="mt-12 hidden grid-cols-2 gap-4 lg:grid" data-testid="booking-gallery">
-              <img src={assetUrl(info.gallery_1) || "/images/dish.jpg"} alt="Gallery 1" className="h-56 w-full rounded-2xl object-cover card-shadow" />
-              <img src={assetUrl(info.gallery_2) || "/images/bar.jpg"} alt="Gallery 2" className="mt-10 h-56 w-full rounded-2xl object-cover card-shadow" />
-            </div>}
-          </div>
-          <div className="lg:col-span-7">
-            <div className={`${card} p-6 sm:p-10`}>
-              {done ? <Confirmation data={done} onReset={() => setDone(null)} /> : <BookingForm info={info} onDone={setDone} />}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {info?.show_visit && <section id="visit" className="mx-auto max-w-7xl px-6 py-24 lg:px-10" data-testid="visit-section">
-        <div className={eyebrow}>Visit us</div>
-        <h2 className="mt-3 font-display text-4xl font-bold">{info?.visit_title}</h2>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[[Clock, "Hours", info?.hours, "info-hours"], [MapPin, "Address", info?.address, "info-address"], [Phone, "Phone", info?.phone, "info-phone"], [Mail, "Email", info?.email, "info-email"]].map(([Icon, t, v, id]) => (
-            <div key={id} className={`${card} p-6 transition-transform duration-200 hover:-translate-y-1`} data-testid={id}>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#120092]/[0.07] text-[#120092]"><Icon className="h-5 w-5" /></div>
-              <div className="mt-5 text-sm font-semibold">{t}</div>
-              <div className="mt-1 text-sm text-slate-600">{v}</div>
-            </div>
-          ))}
-        </div>
-      </section>}
-
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-7xl flex-col justify-between gap-3 px-6 py-8 text-sm text-slate-500 sm:flex-row lg:px-10">
-          <span className="flex items-center gap-2 font-display font-semibold text-slate-800"><Star className="h-4 w-4 text-[#120092]" />{info?.name}</span>
-          <span>© {new Date().getFullYear()} · {info?.address}</span>
-        </div>
-      </footer>
+        </main>
+      </div>
     </div>
   );
 }

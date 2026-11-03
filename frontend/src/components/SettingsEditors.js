@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowUp, ArrowDown, Eye, EyeOff, Plus, Trash2, Upload, ExternalLink } from "lucide-react";
-import { api, assetUrl, formatApiError } from "../lib/api";
+import { ArrowUp, ArrowDown, Eye, EyeOff, Plus, Trash2, ExternalLink } from "lucide-react";
+import { api, formatApiError } from "../lib/api";
 import { btnPrimary, btnGhost, card } from "../lib/status";
 import { useSite } from "../context/SiteContext";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { Switch } from "./ui/switch";
 
 const L = ({ children }) => <div className="mb-1.5 text-xs font-semibold text-slate-500">{children}</div>;
 const Panel = ({ title, hint, children }) => (
@@ -98,59 +97,7 @@ export function ZonesEditor({ s, onSaved }) {
   );
 }
 
-function resizeToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const scale = Math.min(1, 1800 / Math.max(img.width, img.height));
-      const c = document.createElement("canvas");
-      c.width = Math.round(img.width * scale);
-      c.height = Math.round(img.height * scale);
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      resolve(c.toDataURL("image/jpeg", 0.85));
-    };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-function ImageField({ label, value, onChange, testId }) {
-  const ref = useRef(null);
-  const [busy, setBusy] = useState(false);
-  const upload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBusy(true);
-    try {
-      const { data } = await api.post("/assets", { data_url: await resizeToDataUrl(file) });
-      onChange(data.url);
-    } catch (err) {
-      toast.error(formatApiError(err));
-    } finally {
-      setBusy(false);
-      e.target.value = "";
-    }
-  };
-  return (
-    <div>
-      <L>{label}</L>
-      <div className="flex items-center gap-3">
-        <img src={assetUrl(value)} alt={label} className="h-16 w-24 rounded-lg border border-border object-cover" data-testid={`${testId}-preview`} />
-        <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={upload} data-testid={`${testId}-file`} />
-        <button type="button" onClick={() => ref.current.click()} disabled={busy} data-testid={`${testId}-upload`} className={btnGhost}><Upload className="h-4 w-4" />{busy ? "Uploading…" : "Upload photo"}</button>
-      </div>
-    </div>
-  );
-}
-
-const Toggle = ({ label, checked, onChange, testId }) => (
-  <label className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-    <span className="text-sm font-medium">{label}</span>
-    <Switch checked={checked} onCheckedChange={onChange} data-testid={testId} />
-  </label>
-);
-
-const CONTENT_KEYS = ["tagline", "description", "hero_badge", "hero_image", "cta_label", "show_hero_cards", "booking_title", "booking_text", "show_steps", "show_gallery", "gallery_1", "gallery_2", "show_visit", "visit_title"];
+const CONTENT_KEYS = ["tagline", "description", "booking_title", "booking_text"];
 
 export function BookingPageEditor({ s, onSaved }) {
   const { refresh } = useSite();
@@ -159,38 +106,15 @@ export function BookingPageEditor({ s, onSaved }) {
     setF(Object.fromEntries(CONTENT_KEYS.map((k) => [k, s[k]])));
   }, [s]);
   const t = (k) => ({ value: f[k] || "", onChange: (e) => setF({ ...f, [k]: e.target.value }), "data-testid": `content-${k}` });
-  const b = (k) => ({ checked: !!f[k], onChange: (v) => setF({ ...f, [k]: v }), testId: `content-${k}` });
-  const save = () => saveSettings({ ...f, cta_label: f.cta_label || "Reserve a table" }, "Booking page updated", (d) => { onSaved(d); refresh(); });
+  const save = () => saveSettings(f, "Booking page updated", (d) => { onSaved(d); refresh(); });
   return (
     <div className="space-y-6">
-      <Panel title="Top of the page" hint="The first thing guests see.">
+      <Panel title="Restaurant info & booking form" hint="Your booking page shows only the booking form plus your basic details. Hours, address, phone and email are edited under General.">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div><L>Small badge text (leave empty to hide)</L><Input {...t("hero_badge")} maxLength={80} /></div>
-          <div><L>Button label</L><Input {...t("cta_label")} maxLength={40} /></div>
           <div><L>Tagline</L><Input {...t("tagline")} /></div>
-          <div className="sm:col-span-2"><L>Description</L><Textarea rows={2} {...t("description")} /></div>
-          <ImageField label="Main photo" value={f.hero_image} onChange={(v) => setF({ ...f, hero_image: v })} testId="content-hero-image" />
-          <Toggle label="Show floating info cards on the photo" {...b("show_hero_cards")} />
-        </div>
-      </Panel>
-      <Panel title="Booking section">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2"><L>Heading</L><Input {...t("booking_title")} maxLength={120} /></div>
-          <div className="sm:col-span-2"><L>Intro text</L><Textarea rows={2} {...t("booking_text")} maxLength={600} /></div>
-          <Toggle label="Show the 3 booking steps" {...b("show_steps")} />
-          <Toggle label="Show the 2 photos" {...b("show_gallery")} />
-          {f.show_gallery && (
-            <>
-              <ImageField label="Photo 1" value={f.gallery_1} onChange={(v) => setF({ ...f, gallery_1: v })} testId="content-gallery-1" />
-              <ImageField label="Photo 2" value={f.gallery_2} onChange={(v) => setF({ ...f, gallery_2: v })} testId="content-gallery-2" />
-            </>
-          )}
-        </div>
-      </Panel>
-      <Panel title="Visit us section" hint="Shows your hours, address, phone and email (edit those under General).">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Toggle label="Show this section" {...b("show_visit")} />
-          <div><L>Heading</L><Input {...t("visit_title")} maxLength={120} /></div>
+          <div><L>Form heading</L><Input {...t("booking_title")} maxLength={120} /></div>
+          <div className="sm:col-span-2"><L>Short description</L><Textarea rows={2} {...t("description")} /></div>
+          <div className="sm:col-span-2"><L>Text under the form heading</L><Textarea rows={2} {...t("booking_text")} maxLength={600} /></div>
         </div>
       </Panel>
       <div className="flex gap-2">
