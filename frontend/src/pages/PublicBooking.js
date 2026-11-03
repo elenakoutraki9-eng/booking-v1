@@ -25,13 +25,14 @@ function DateTrigger({ value, open, onToggle }) {
 
 function InlineCalendar({ value, open, onPick }) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (!open) return null;
   return (
-    <motion.div initial={false} animate={{ height: open ? "auto" : 0, opacity: open ? 1 : 0 }} transition={{ type: "spring", stiffness: 300, damping: 32 }} className="overflow-hidden" style={{ marginTop: open ? undefined : 0 }} aria-hidden={!open} data-testid="booking-calendar">
+    <div data-testid="booking-calendar">
       <div className="flex justify-center rounded-2xl border border-border bg-white">
         <Calendar mode="single" fixedWeeks selected={new Date(`${value}T12:00:00`)} defaultMonth={new Date(`${value}T12:00:00`)} disabled={{ before: today }}
           onSelect={(d) => d && onPick(toDateStr(d))} />
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -43,7 +44,6 @@ function BookingForm({ info, onDone }) {
   const [avail, setAvail] = useState(null);
   const [reload, setReload] = useState(0);
   const [step, setStep] = useState(0);
-  const [dir, setDir] = useState(1);
   const [calOpen, setCalOpen] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const max = info?.max_party_online || 8;
@@ -78,7 +78,7 @@ function BookingForm({ info, onDone }) {
   };
 
   const stepOk = [true, !!f.time, true];
-  const go = (n) => { setDir(n > step ? 1 : -1); setStep(n); };
+  const go = (n) => setStep(n);
   const onFormSubmit = (e) => {
     if (step < 2) {
       e.preventDefault();
@@ -95,12 +95,12 @@ function BookingForm({ info, onDone }) {
         {STEPS.map((label, i) => (
           <button key={label} type="button" aria-label={`Step ${i + 1}: ${label}`} title={label} disabled={i > step && !stepOk.slice(0, i).every(Boolean)} onClick={() => (i < step || stepOk.slice(0, i).every(Boolean)) && go(i)} data-testid={`booking-step-${i}`} className="py-1 text-left disabled:cursor-not-allowed">
             <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-              <motion.div className="h-full rounded-full bg-[#120092]" initial={false} animate={{ width: i <= step ? "100%" : "0%" }} transition={{ type: "spring", stiffness: 200, damping: 28 }} />
+              <div className="h-full rounded-full bg-[#120092] transition-[width] duration-200 ease-out" style={{ width: i <= step ? "100%" : "0%" }} />
             </div>
           </button>
         ))}
       </div>
-      <motion.div key={step} initial={{ x: dir * 60, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="space-y-7" data-testid={`booking-slide-${step}`}>
+      <div key={step} className="space-y-7" data-testid={`booking-slide-${step}`}>
       {step === 0 && (<>
       <div className="grid grid-cols-2 gap-4">
         <div><Label>Date</Label><DateTrigger value={f.date} open={calOpen} onToggle={() => setCalOpen(!calOpen)} /></div>
@@ -156,7 +156,7 @@ function BookingForm({ info, onDone }) {
         <div className="sm:col-span-2"><Label>Allergies, occasion or requests</Label><Textarea value={f.notes} onChange={set("notes")} rows={3} data-testid="booking-notes-input" className="rounded-xl" placeholder="e.g. nut allergy, anniversary, high chair" /></div>
       </div>
       </>)}
-      </motion.div>
+      </div>
       <div className="mt-8 flex gap-3">
         {step > 0 && <button type="button" onClick={() => go(step - 1)} data-testid="booking-back-btn" className={`${btnGhost} px-6 py-4`}><ArrowLeft className="h-4 w-4" /> Back</button>}
         {step < 2 ? (
