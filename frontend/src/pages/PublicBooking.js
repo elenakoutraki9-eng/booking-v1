@@ -138,7 +138,7 @@ function BookingForm({ info, onDone }) {
         ) : (
           <div className="flex flex-wrap gap-2" data-testid="booking-slots">
             {slots.map((s) => (
-              <button key={s} type="button" data-testid={`booking-slot-${s.replace(":", "")}`} onClick={() => { setF({ ...f, time: s }); setTimeout(() => go(2), 220); }} className={chip(f.time === s)}>{s}</button>
+              <button key={s} type="button" data-testid={`booking-slot-${s.replace(":", "")}`} onClick={() => setF({ ...f, time: s })} className={chip(f.time === s)}>{s}</button>
             ))}
           </div>
         )}
