@@ -17,8 +17,8 @@ const chip = (on) => `rounded-full border px-3.5 py-1.5 text-sm font-medium tran
 
 function DateTrigger({ value, open, onToggle }) {
   return (
-    <button type="button" onClick={onToggle} aria-expanded={open} data-testid="booking-date-input" className={`flex h-12 w-full items-center gap-3 rounded-xl border bg-white px-4 text-left text-sm font-medium transition-colors hover:border-[#120092]/40 ${open ? "border-[#120092]" : "border-input"}`}>
-      <CalendarDays className="h-4 w-4 text-[#120092]" />{prettyDate(value)}
+    <button type="button" onClick={onToggle} aria-expanded={open} data-testid="booking-date-input" className={`flex h-12 w-full items-center gap-2 rounded-xl border bg-white px-3 text-left text-sm font-medium transition-colors hover:border-[#120092]/40 sm:gap-3 sm:px-4 ${open ? "border-[#120092]" : "border-input"}`}>
+      <CalendarDays className="h-4 w-4 shrink-0 text-[#120092]" /><span className="truncate whitespace-nowrap">{prettyDate(value)}</span>
     </button>
   );
 }

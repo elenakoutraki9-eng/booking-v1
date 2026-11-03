@@ -37,6 +37,7 @@ User choices: staff back office + public booking page; email/password login; boo
 - 2026-11-03: Menu: owner types the menu in Settings → Menu (categories, items, € prices, descriptions, tags, hide/show, reorder). The public page has Book a table / Menu tabs (?view=menu opens the menu). Iteration 5 tests passed (whitespace-only names were then rejected by the API). The Book/Menu switch now animates: the highlight springs across with a squash, the icon wiggles, and the content slides in with a blur from the side it was picked.
 - 2026-11-03: Book/Menu now switch with a push slide (PushSlider.js): both cards sit side by side and the track slides, the height adjusts smoothly, and the card going off screen fades and shrinks. The booking form keeps whatever was typed while the guest looks at the menu.
 - 2026-11-03: Swipe left/right on phones (touch only) to switch between Book and Menu, with elastic feedback at the ends. The booking form is now 3 slides with a progress bar: 1 Date & guests (+ area), 2 Time (picking a time moves on automatically), 3 Your details (with a summary and "Change" link). Back/Next buttons; a 409 "fully booked" sends the guest back to the Time slide with refreshed times. Fixed a mobile overflow (grid-cols-1 + min-w-0).
+- 2026-11-03: Removed the text labels under the booking progress bars. The date picker is now an inline calendar that opens below the date field with a fixed 6-week height, so it no longer jumps up or down between months. Iteration 6 tests: 100% pass.
 
 ## Backlog
 - P1: Email/SMS booking confirmations to guests

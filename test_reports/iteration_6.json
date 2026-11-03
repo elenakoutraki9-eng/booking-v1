@@ -1,0 +1,27 @@
+{
+  "summary": "Frontend-only test of public booking page (/): step-bar label removal, inline calendar fix, and booking regression at 390x800, 360x640 and 1920x800. All requested features pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Public booking 360x640", "issues": ["The date trigger text 'Tue 3 Nov' wraps onto two lines in the narrow half-width column. Minor; could add whitespace-nowrap/truncate."]}
+    ]
+  },
+  "verified": [
+    "booking-steps has no text (innerText empty); there are 3 bars. Fill widths: step0 [full,0,0], step1 [full,full,0], step2 [full,full,full]. Clicking booking-step-0 from step 2 goes back. step-2 is disabled until a time is chosen.",
+    "booking-calendar is inline and opens directly below the date row on every viewport. No radix popper is used. Its height is a constant 327px and its top stays fixed across 14 months (Nov 2026 to Dec 2027), all rendered as 6 rows (fixedWeeks).",
+    "Tapping the field again closes the calendar (height 0). Picking a date closes it and updates the date field. Changing the date clears the time: step-2 is disabled again and next is disabled with no time. Past days are disabled (Nov 1-2 when today is Nov 3).",
+    "With the calendar closed, the gap from the date row to 'Seating preference' is 28px once the animation settles.",
+    "Full booking flow works: next, then slot auto-advance, then details, then submit, which returns booking-reference BFU1TN. Menu/Book tabs switch. A mouse drag does not switch tabs."
+  ],
+  "test_report_links": [],
+  "action_items": ["Optional: stop the date trigger text from wrapping at 360px width"],
+  "critical_code_review_comments": ["InlineCalendar is always mounted, even when collapsed (aria-hidden only). Its day buttons are still in the tab order when closed. Consider the inert attribute or conditional render for accessibility."],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "seed_data_creation": "One TEST_Iter6 Guest reservation was created and then deleted (reservations 1, guests 1)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Touch swipe was not re-verified: a synthetic PointerEvent swipe did not switch tabs, most likely a limitation of the synthetic events. PushSlider is unchanged and passed in earlier iterations. Today in the env is 2026-11-03."
+}
