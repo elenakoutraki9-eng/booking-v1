@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 4 - Live Availability. Backend: 18/18 new pytest cases pass (availability shape, past-time exclusion, party-size bounds 400, bad date 400, unknown zone ignored, 8-guest@19:00 blocking window, zone restriction, 6+-seat matching, cancelled not counted, public 409 + message, staff overbook allowed and counted, pinned table kept, full house). Full regression suite: 88 passed, 1 failed (brute-force lockout test - environmental, see minor). Frontend: loading placeholders, slot chips filtered by date/guests/zone, selected time cleared when it becomes unavailable, booking-no-slots message, 409 toast + auto-refresh of slots, full booking -> booking-reference, staff login -> /staff all verified via Playwright. All TEST_ data cleaned up (0 left); tables/settings untouched.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/login", "issue": "Lockout key is X-Forwarded-For first IP + email. Egress from the test pod alternates between 2 IPs (35.225.230.28 / 34.170.12.145), so failures get split across two counters and 6th attempt returns 401 instead of 429 (test_iteration2_fixes::test_bruteforce_lockout_public_url). Also means an attacker rotating IPs bypasses lockout. Consider an additional per-email counter."},
+      {"endpoint": "/api/public/availability", "issue": "Review example said 17:30-20:00 blocked for an 8-guest booking at 19:00; actual (correct with half-open [t,t+90) intervals) is 18:00-20:00 because 17:30 visit ends exactly at 19:00. Implementation is consistent; only the example was off."},
+      {"endpoint": "can_seat", "issue": "Conservative: all overlapping bookings must get distinct tables even if they don't overlap each other (e.g. bookings at 17:30 and 19:00 both overlap slot 18:00 but could share one table). May under-report availability on busy nights. Also pre-existing over-booked bookings that can't be matched are silently skipped (fine)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Public booking page", "issues": ["Info shows hours 'Tue-Sun 12:00-15:00 & 18:00-23:30' but slot chips include 15:30-17:30 (slot_start/slot_end settings don't reflect the break) - content/config mismatch, pre-existing."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration4_availability.py", "/app/backend/tests/cleanup_test_data.py", "/app/test_reports/pytest/pytest_iter4.xml"],
+  "action_items": [
+    "Optional: harden login lockout with a per-email counter in addition to IP+email",
+    "Optional: consider interval-scheduling based table reuse in can_seat to avoid under-reporting availability",
+    "Optional: align opening hours text with slot range or support split service periods"
+  ],
+  "critical_code_review_comments": [
+    "server.py is ~900 lines (>700) - consider splitting into routers (auth, public, reservations, settings)",
+    "Availability check + insert in public_reserve is not atomic - two simultaneous requests for the last table can both succeed (race). Acceptable for MVP; could use a per-date lock/transaction.",
+    "slot_availability loads all tables/reservations per call (fine at this scale)."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration4_availability.py", "/app/backend/tests/cleanup_test_data.py"],
+  "success_rate": {"backend": "100% (feature); 98.9% full regression (1 environmental failure)", "frontend": "100%"},
+  "test_credentials": "Owner gonabip117@digeros.com / Maison-Owner-2026 (from /app/memory/test_credentials.md) - works",
+  "seed_data_creation": "Temporary TEST_ reservations on dates +40..+47 days and 2026-12-15; all deleted afterwards.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Server clock is ~2026-11-03 UTC. Run test_iteration4_availability.py (uses distinct future dates per test, fixture cleans TEST_ data); run cleanup_test_data.py afterwards to purge TEST_ reservations/guests. pytest.ini uses xdist (-n). Brute-force lockout test is flaky due to rotating egress IPs. Calendar navigation in Playwright: click booking-date-input, button[name=next-month], then gridcell with day text.",
+  "rca of the issue": "Brute-force test failure: login_attempts shows same email under two identifiers with different IPs (count 4 and 2) -> ingress/egress IP alternation, not a code regression of this iteration."
+}

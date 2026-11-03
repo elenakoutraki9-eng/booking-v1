@@ -108,19 +108,21 @@ async def login(body: LoginIn, request: Request, response: Response):
     email = body.email.lower()
     fwd = request.headers.get("x-forwarded-for", "")
     ip = fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "x")
-    ident = f"{ip}:{email}"
-    att = await db.login_attempts.find_one({"identifier": ident})
-    if att and att.get("count", 0) >= 5:
-        locked_until = datetime.fromisoformat(att["last"]) + timedelta(minutes=15)
-        if datetime.now(timezone.utc) < locked_until:
-            raise HTTPException(429, "Too many failed attempts. Try again in 15 minutes.")
-        await db.login_attempts.delete_one({"identifier": ident})
+    idents = [(f"{ip}:{email}", 5), (f"email:{email}", 10)]
+    for ident, limit in idents:
+        att = await db.login_attempts.find_one({"identifier": ident})
+        if att and att.get("count", 0) >= limit:
+            locked_until = datetime.fromisoformat(att["last"]) + timedelta(minutes=15)
+            if datetime.now(timezone.utc) < locked_until:
+                raise HTTPException(429, "Too many failed attempts. Try again in 15 minutes.")
+            await db.login_attempts.delete_one({"identifier": ident})
     user = await db.users.find_one({"email": email})
     if not user or not verify_password(body.password, user["password_hash"]):
-        await db.login_attempts.update_one({"identifier": ident},
-                                           {"$inc": {"count": 1}, "$set": {"last": now_iso()}}, upsert=True)
+        for ident, _ in idents:
+            await db.login_attempts.update_one({"identifier": ident},
+                                               {"$inc": {"count": 1}, "$set": {"last": now_iso()}}, upsert=True)
         raise HTTPException(401, "Invalid email or password")
-    await db.login_attempts.delete_one({"identifier": ident})
+    await db.login_attempts.delete_many({"identifier": {"$in": [i for i, _ in idents]}})
     set_auth_cookies(response, user["id"])
     return clean(user)
 
@@ -695,8 +697,11 @@ async def slot_availability(s, date, party_size, zone):
         if date < today or (date == today and slot <= now.strftime("%H:%M")):
             continue
         start = to_min(slot)
-        overlap = [r for r in booked if to_min(r["time"]) < start + VISIT_MINUTES and start < to_min(r["time"]) + (r.get("duration") or VISIT_MINUTES)]
-        out.append({"time": slot, "available": can_seat(tables, overlap, party_size, zone)})
+        end = start + VISIT_MINUTES
+        spans = [(to_min(r["time"]), to_min(r["time"]) + (r.get("duration") or VISIT_MINUTES), r) for r in booked]
+        points = [start] + [a for a, _, _ in spans if start < a < end]
+        ok = all(can_seat(tables, [r for a, b, r in spans if a <= p < b], party_size, zone) for p in points)
+        out.append({"time": slot, "available": ok})
     return out
 
 

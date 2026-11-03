@@ -139,7 +139,7 @@ function Confirmation({ data, onReset }) {
 function RestaurantInfo({ info }) {
   const facts = [[Clock, info?.hours, "info-hours"], [MapPin, info?.address, "info-address"], [Phone, info?.phone, "info-phone"], [Mail, info?.email, "info-email"]];
   return (
-    <aside className="rise lg:sticky lg:top-12 lg:col-span-4 lg:self-start" data-testid="restaurant-info">
+    <aside className="rise order-2 lg:order-1 lg:sticky lg:top-12 lg:col-span-4 lg:self-start" data-testid="restaurant-info">
       <div className="flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#120092] font-display text-xl font-bold text-white brand-shadow">{info?.name?.[0]}</span>
         <div>
@@ -169,7 +169,7 @@ export default function PublicBooking() {
     <div className="hero-glow min-h-screen bg-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-6 py-10 lg:grid-cols-12 lg:gap-14 lg:px-10 lg:py-16">
         <RestaurantInfo info={info} />
-        <main className="rise d1 lg:col-span-8" id="book">
+        <main className="rise d1 order-1 lg:order-2 lg:col-span-8" id="book">
           <div className={`${card} p-6 sm:p-10`}>
             {!done && (
               <div className="mb-8">
